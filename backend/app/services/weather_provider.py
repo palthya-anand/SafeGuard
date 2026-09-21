@@ -181,7 +181,9 @@ class OpenWeatherMapProvider(WeatherProvider):
             return result
 
         except Exception as exc:  # noqa: BLE001
-            logger.warning("OWM request failed (%s). Using mock fallback.", exc)
+            import re
+            safe_msg = re.sub(r"(key|appid)=([a-zA-Z0-9_-]+)", r"\1=REDACTED", str(exc))
+            logger.warning("OWM request failed (%s). Using mock fallback.", safe_msg)
             fallback = await self._fallback.get_weather(lat, lon)
             return fallback.model_copy(update={"source": "mock-fallback"})
 

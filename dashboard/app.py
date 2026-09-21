@@ -1275,12 +1275,104 @@ elif page == "🔴 Live Demo Simulator":
                     st.subheader("Recommended Driver Action")
                     st.info(f"👉 **{res.get('recommended_action', 'Continue driving safely and observe road signs.')}**")
 
+                    # Multilingual Driver Voice Advisory (P2 Feature from REPORT.md)
+                    if lvl in ("HIGH", "CRITICAL"):
+                        st.subheader("🔊 Multilingual In-Cabin Voice Alerts")
+                        st.caption("Audio prompts synthesized for the driver's regional language configuration:")
+                        v_col1, v_col2 = st.columns(2)
+                        with v_col1:
+                            st.markdown(
+                                """
+                                <div style="background:rgba(240,93,94,0.12);border:1px solid rgba(240,93,94,0.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;">
+                                    <div style="font-size:0.75rem;font-weight:700;color:#00E5FF;">🇬🇧 ENGLISH (Primary)</div>
+                                    <div style="font-size:0.92rem;color:#F8FAFC;font-weight:600;">"Warning! Excessive speed in accident hotspot. Slow down immediately."</div>
+                                </div>
+                                <div style="background:rgba(240,93,94,0.12);border:1px solid rgba(240,93,94,0.3);border-radius:8px;padding:10px 14px;">
+                                    <div style="font-size:0.75rem;font-weight:700;color:#00E5FF;">🇮🇳 HINDI (हिन्दी)</div>
+                                    <div style="font-size:0.92rem;color:#F8FAFC;font-weight:600;">"सावधान! दुर्घटना क्षेत्र में अत्यधिक गति। कृपया तुरंत गति धीमी करें।"</div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+                        with v_col2:
+                            st.markdown(
+                                """
+                                <div style="background:rgba(240,93,94,0.12);border:1px solid rgba(240,93,94,0.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;">
+                                    <div style="font-size:0.75rem;font-weight:700;color:#00E5FF;">🇮🇳 KANNADA (ಕನ್ನಡ)</div>
+                                    <div style="font-size:0.92rem;color:#F8FAFC;font-weight:600;">"ಎಚ್ಚರಿಕೆ! ಅಪಘಾತ ವಲಯದಲ್ಲಿ ಹೆಚ್ಚಿನ ವೇಗ. ದಯವಿಟ್ಟು ತಕ್ಷಣವೇ ವೇಗ ಕಡಿಮೆ ಮಾಡಿ."</div>
+                                </div>
+                                <div style="background:rgba(240,93,94,0.12);border:1px solid rgba(240,93,94,0.3);border-radius:8px;padding:10px 14px;">
+                                    <div style="font-size:0.75rem;font-weight:700;color:#00E5FF;">🇮🇳 TAMIL (தமிழ்)</div>
+                                    <div style="font-size:0.92rem;color:#F8FAFC;font-weight:600;">"எச்சரிக்கை! விபத்து பகுதியில் அதிக வேகம். தயவுசெய்து உடனடியாக வேகத்தை குறைக்கவும்."</div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+
                     with st.expander("Raw API Response Payload"):
                         st.json(res)
                 else:
                     st.error(f"API returned status {resp.status_code}: {resp.text}")
             except Exception as e:
                 st.error(f"Failed to communicate with API: {e}")
+
+    st.divider()
+
+    # Emergency Crash Deceleration Simulation (P2 Feature from REPORT.md)
+    st.subheader("🚨 Emergency Deceleration & Crash Event Simulator")
+    st.caption("Test the automated crash detection and 15-second emergency contact workflow.")
+
+    e_col1, e_col2 = st.columns([1, 1])
+    with e_col1:
+        crash_accel = st.slider("Simulated Deceleration Force (G-force)", 4.0, 14.0, 8.4, 0.2, key="sim_crash_accel")
+        crash_conf = st.slider("Sensor Confidence", 0.5, 1.0, 0.92, 0.02, key="sim_crash_conf")
+
+    with e_col2:
+        st.markdown(
+            """
+            <div style="background:rgba(240,93,94,0.1);border:1px solid rgba(240,93,94,0.35);border-radius:8px;padding:12px 16px;font-size:0.85rem;line-height:1.45;">
+                <div style="font-weight:700;color:#F05D5E;margin-bottom:6px;">AUTOMATED SOS PROTOCOL</div>
+                1. Accelerometer detects impact exceeding <b>6.5G threshold</b>.<br>
+                2. Device initiates a <b>15-second audible countdown</b> with an <code>[I AM OK]</code> override button.<br>
+                3. If not cancelled, an alert is transmitted to backend and SMS is dispatched to emergency contacts.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    if st.button("🚨 Simulate Crash Impact Event", type="secondary", disabled=not api_online, key="btn_sim_crash"):
+        crash_payload = {
+            "latitude": in_lat,
+            "longitude": in_lon,
+            "acceleration_g": float(crash_accel),
+            "confidence": float(crash_conf),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "device_id": "dashboard-crash-sim",
+        }
+        try:
+            c_resp = requests.post(f"{API_BASE}/events/crash-suspected", json=crash_payload, timeout=5)
+            if c_resp.ok:
+                c_data = c_resp.json()
+                st.error(
+                    f"⚠️ CRASH DETECTED ({crash_accel:.1f}G, Confidence: {crash_conf:.0%}) — "
+                    f"Alert ID: #{c_data.get('alert_id', 1)} | Action: {c_data.get('next_action', 'CONFIRMATION')}"
+                )
+                st.success(f"📡 Backend Response: {c_data.get('message', '')}")
+                st.markdown(
+                    f"""
+                    <div style="background:#0F1D30;border:1px solid #21C77A;border-radius:8px;padding:12px 16px;margin-top:10px;">
+                        <div style="color:#21C77A;font-weight:700;font-size:0.88rem;">📱 DISPATCHED EMERGENCY SMS TEMPLATE</div>
+                        <div style="color:#CBD5E1;font-size:0.83rem;margin-top:4px;font-family:monospace;">
+                            "SafeGuard SOS: Crash detected for Device 'dashboard-crash-sim' at {in_lat:.4f}° N, {in_lon:.4f}° E ({crash_accel:.1f}G). Medical services have been notified."
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.error(f"Crash endpoint error: {c_resp.status_code}")
+        except Exception as err:
+            st.error(f"Failed to transmit crash event: {err}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
