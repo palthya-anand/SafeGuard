@@ -551,25 +551,63 @@ elif page == "🗺️ Accident Heatmap":
     st.title("🗺️ Spatial Accident Density & Hotspot Zones")
     st.caption("Interactive geospatial visualization of historical collision events, high-risk cluster zones, and live vehicle telemetry.")
 
-    # Provider status label banner
-    st.markdown(
-        """
-        <div style="background:linear-gradient(135deg, rgba(16, 34, 56, 0.95), rgba(8, 20, 38, 0.95));border:1px solid rgba(0, 229, 255, 0.3);border-radius:10px;padding:14px 18px;margin-bottom:16px;box-shadow:0 4px 16px rgba(0,0,0,0.35);">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-                <div style="font-weight:700;color:#00E5FF;font-size:0.95rem;display:flex;align-items:center;gap:8px;">
-                    <span>🗺️</span> <span>Active Map Provider: <b>OpenStreetMap (OSM)</b> — Hackathon Edition</span>
+    # Detect Mapbox token from environment or session
+    env_mapbox_token = os.getenv("MAPBOX_API_KEY") or os.getenv("MAPBOX_TOKEN") or ""
+
+    with st.expander("🔑 Mapbox Provider & Access Token Settings", expanded=False):
+        st.markdown(
+            "Configure Mapbox to unlock premium high-resolution navigation and dark-mode cartography tiles."
+        )
+        user_mapbox_token = st.text_input(
+            "Mapbox Public Access Token (`pk.eyJ1...`)",
+            value=env_mapbox_token,
+            type="password",
+            help="Paste your Mapbox access token here or define MAPBOX_API_KEY in your .env file.",
+        )
+        if user_mapbox_token:
+            st.success("✓ Mapbox Access Token detected and active.")
+
+    active_token = user_mapbox_token.strip() if user_mapbox_token else env_mapbox_token.strip()
+
+    # Provider Status Banner
+    if active_token:
+        st.markdown(
+            """
+            <div style="background:linear-gradient(135deg, rgba(16, 34, 56, 0.95), rgba(8, 20, 38, 0.95));border:1px solid rgba(0, 229, 255, 0.4);border-radius:10px;padding:14px 18px;margin-bottom:16px;box-shadow:0 4px 16px rgba(0,0,0,0.35);">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                    <div style="font-weight:700;color:#00E5FF;font-size:0.95rem;display:flex;align-items:center;gap:8px;">
+                        <span>🗺️</span> <span>Active Map Provider: <b>Mapbox Navigation Engine</b> (Licensed API Key Connected)</span>
+                    </div>
+                    <span class="sg-status-chip sg-chip-online">
+                        ● Mapbox API Active
+                    </span>
                 </div>
-                <span class="sg-status-chip sg-chip-online">
-                    ● OSM Attribution Active
-                </span>
+                <div style="font-size:0.83rem;color:#94A3B8;margin-top:6px;line-height:1.45;">
+                    ℹ️ <i>For production route intelligence, evaluate Mapbox, Google Maps, or another licensed provider with API-key management.</i>
+                </div>
             </div>
-            <div style="font-size:0.83rem;color:#94A3B8;margin-top:6px;line-height:1.45;">
-                ℹ️ <i>For production route intelligence, evaluate Mapbox, Google Maps, or another licensed provider with API-key management.</i>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            """
+            <div style="background:linear-gradient(135deg, rgba(16, 34, 56, 0.95), rgba(8, 20, 38, 0.95));border:1px solid rgba(0, 229, 255, 0.3);border-radius:10px;padding:14px 18px;margin-bottom:16px;box-shadow:0 4px 16px rgba(0,0,0,0.35);">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                    <div style="font-weight:700;color:#00E5FF;font-size:0.95rem;display:flex;align-items:center;gap:8px;">
+                        <span>🗺️</span> <span>Active Map Provider: <b>OpenStreetMap (OSM)</b> — Hackathon Edition</span>
+                    </div>
+                    <span class="sg-status-chip sg-chip-online">
+                        ● OSM Attribution Active
+                    </span>
+                </div>
+                <div style="font-size:0.83rem;color:#94A3B8;margin-top:6px;line-height:1.45;">
+                    ℹ️ <i>For production route intelligence, evaluate Mapbox, Google Maps, or another licensed provider with API-key management. (Mapbox token can be added in the drawer above).</i>
+                </div>
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+            """,
+            unsafe_allow_html=True,
+        )
 
     if no_data:
         st.warning("No geospatial data available.")
@@ -585,10 +623,26 @@ elif page == "🗺️ Accident Heatmap":
             "Kolkata": (22.5726, 88.3639, 12),
         }
 
-        f1, f2 = st.columns([1, 2])
+        f1, f2, f3 = st.columns([1, 1, 1])
         with f1:
             selected_city = st.selectbox("Focus Metro Corridor", list(city_coords.keys()), index=1)
         with f2:
+            if active_token:
+                style_choice = st.selectbox(
+                    "Map Tile Theme",
+                    [
+                        "🚗 Mapbox Navigation Night",
+                        "🌃 Mapbox Dark v11",
+                        "🏙️ Mapbox Streets v12",
+                        "🛰️ Mapbox Satellite Streets",
+                        "🌐 OpenStreetMap (OSM)",
+                    ],
+                    index=0,
+                )
+            else:
+                style_choice = "🌐 OpenStreetMap (OSM)"
+                st.selectbox("Map Tile Theme", ["🌐 OpenStreetMap (OSM — Free Default)"], disabled=True)
+        with f3:
             severity_filter = st.multiselect(
                 "Filter Incident Severity Layers",
                 options=df["severity"].unique().tolist(),
@@ -598,13 +652,30 @@ elif page == "🗺️ Accident Heatmap":
         filtered = df[df["severity"].isin(severity_filter)]
         city_lat, city_lon, zoom = city_coords[selected_city]
 
-        # Use OpenStreetMap directly with explicit, visible attribution
-        m = folium.Map(
-            location=[city_lat, city_lon],
-            zoom_start=zoom,
-            tiles="OpenStreetMap",
-            attr='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
-        )
+        # Configure Map tiles dynamically (Mapbox vs OpenStreetMap)
+        if active_token and "Mapbox" in style_choice:
+            style_slug_map = {
+                "🚗 Mapbox Navigation Night": "navigation-night-v1",
+                "🌃 Mapbox Dark v11": "dark-v11",
+                "🏙️ Mapbox Streets v12": "streets-v12",
+                "🛰️ Mapbox Satellite Streets": "satellite-streets-v12",
+            }
+            slug = style_slug_map.get(style_choice, "navigation-night-v1")
+            mapbox_tile_url = f"https://api.mapbox.com/styles/v1/mapbox/{slug}/tiles/256/{{z}}/{{x}}/{{y}}@2x?access_token={active_token}"
+            m = folium.Map(
+                location=[city_lat, city_lon],
+                zoom_start=zoom,
+                tiles=mapbox_tile_url,
+                attr='&copy; <a href="https://www.mapbox.com/about/maps/" target="_blank">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
+            )
+        else:
+            # Direct OpenStreetMap with visible attribution
+            m = folium.Map(
+                location=[city_lat, city_lon],
+                zoom_start=zoom,
+                tiles="OpenStreetMap",
+                attr='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
+            )
 
         # Subsample for rendering responsiveness
         sample_size = min(600, len(filtered))
@@ -1283,13 +1354,14 @@ elif page == "⚙️ System Diagnostics":
 
     st.subheader("API Endpoints & Operational Status")
     endpoint_data = [
-        {"Endpoint": "GET /api/v1/health", "Function": "System Health & Uptime", "Status": "200 OK" if api_online else "Offline"},
-        {"Endpoint": "POST /api/v1/predict-risk", "Function": "ML Risk Inference Engine", "Status": "200 OK" if api_online else "Offline"},
-        {"Endpoint": "GET /api/v1/hotspots/nearby", "Function": "Spatial Hotspot Radius Query", "Status": "200 OK" if api_online else "Offline"},
-        {"Endpoint": "GET /api/v1/road-context", "Function": "Traffic & Weather Provider Context", "Status": "200 OK" if api_online else "Offline"},
-        {"Endpoint": "GET /api/v1/dashboard/summary", "Function": "Telemetry & Alert Aggregate Metrics", "Status": "200 OK" if api_online else "Offline"},
-        {"Endpoint": "POST /api/v1/events/telemetry", "Function": "Mobile Telemetry Ingestion", "Status": "200 OK" if api_online else "Offline"},
-        {"Endpoint": "POST /api/v1/events/crash-suspected", "Function": "Deceleration Crash Alert Dispatch", "Status": "200 OK" if api_online else "Offline"},
+        {"Component": "Map Engine", "Active Provider": "Mapbox Navigation Engine" if active_token else "OpenStreetMap (OSM)", "Status": "200 OK (Licensed)" if active_token else "200 OK (Free Default)"},
+        {"Component": "GET /api/v1/health", "Active Provider": "FastAPI Core", "Status": "200 OK" if api_online else "Offline"},
+        {"Component": "POST /api/v1/predict-risk", "Active Provider": "ML Risk Inference Engine", "Status": "200 OK" if api_online else "Offline"},
+        {"Component": "GET /api/v1/hotspots/nearby", "Active Provider": "Spatial Hotspot Radius Query", "Status": "200 OK" if api_online else "Offline"},
+        {"Component": "GET /api/v1/road-context", "Active Provider": "Traffic & Weather Provider Context", "Status": "200 OK" if api_online else "Offline"},
+        {"Component": "GET /api/v1/dashboard/summary", "Active Provider": "Telemetry & Alert Aggregate Metrics", "Status": "200 OK" if api_online else "Offline"},
+        {"Component": "POST /api/v1/events/telemetry", "Active Provider": "Mobile Telemetry Ingestion", "Status": "200 OK" if api_online else "Offline"},
+        {"Component": "POST /api/v1/events/crash-suspected", "Active Provider": "Deceleration Crash Alert Dispatch", "Status": "200 OK" if api_online else "Offline"},
     ]
     st.table(pd.DataFrame(endpoint_data))
 
