@@ -183,20 +183,30 @@ async def hotspots_nearby(
 )
 async def road_context(
     request: Request,
-    lat: Annotated[float, Query(ge=-90, le=90)],
-    lon: Annotated[float, Query(ge=-180, le=180)],
+    lat: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    lon: Annotated[float | None, Query(ge=-180, le=180)] = None,
+    latitude: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    longitude: Annotated[float | None, Query(ge=-180, le=180)] = None,
 ) -> dict[str, Any]:
     """Resolve live traffic, weather, and road attributes for coordinates."""
-    logger.info("road-context | lat=%.4f lon=%.4f", lat, lon)
+    resolved_lat = lat if lat is not None else latitude
+    resolved_lon = lon if lon is not None else longitude
+    if resolved_lat is None or resolved_lon is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Latitude and longitude parameters are required.",
+        )
+
+    logger.info("road-context | lat=%.4f lon=%.4f", resolved_lat, resolved_lon)
     traffic_provider = _get_traffic_provider(request)
     weather_provider = _get_weather_provider(request)
 
-    traffic = await traffic_provider.get_traffic(lat, lon)
-    weather = await weather_provider.get_weather(lat, lon)
+    traffic = await traffic_provider.get_traffic(resolved_lat, resolved_lon)
+    weather = await weather_provider.get_weather(resolved_lat, resolved_lon)
 
     return {
-        "latitude": lat,
-        "longitude": lon,
+        "latitude": resolved_lat,
+        "longitude": resolved_lon,
         "speed_limit_kmh": 50.0,
         "road_type": "urban",
         "lighting": "daylight",
