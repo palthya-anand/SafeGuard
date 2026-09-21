@@ -34,10 +34,10 @@ SEVERITY_WEIGHT = {"minor": 1, "moderate": 2, "severe": 3, "fatal": 4}
 EARTH_RADIUS_KM = 6371.0
 
 # DBSCAN parameters
-# eps in radians: 0.5 km / 6371 km ≈ 0.0000785 rad
-EPS_KM      = 0.5
+# eps in radians: 2.0 km / 6371 km ≈ 0.000314 rad
+EPS_KM      = 2.0
 EPS_RAD     = EPS_KM / EARTH_RADIUS_KM
-MIN_SAMPLES = 10
+MIN_SAMPLES = 8
 
 
 # ---------------------------------------------------------------------------
@@ -113,6 +113,10 @@ def detect_hotspots(df: pd.DataFrame) -> pd.DataFrame:
             "radius_m":          round(radius_m, 1),
             "risk_level":        risk_level(len(cluster_df)),
         })
+
+    if not records:
+        cols = ["hotspot_id", "latitude", "longitude", "accident_count", "severity_index", "radius_m", "risk_level"]
+        return pd.DataFrame(columns=cols), df
 
     hotspots = pd.DataFrame(records).sort_values("accident_count", ascending=False).reset_index(drop=True)
     return hotspots, df  # return labelled accidents too

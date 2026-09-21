@@ -313,7 +313,7 @@ async def post_crash_event(
     db.commit()
 
     next_action = (
-        "emergency_services_notified"
+        "SHOW_CONFIRMATION_DIALOG"
         if body.confidence >= 0.8
         else "monitoring_escalation_pending"
     )

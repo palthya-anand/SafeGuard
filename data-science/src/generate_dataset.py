@@ -97,16 +97,16 @@ def generate_dataset() -> pd.DataFrame:
     hotspot_ids_used = []
     for centre, count in zip(HOTSPOT_CENTRES, HOTSPOT_COUNTS):
         clat, clon = centre
-        # Gaussian scatter ~ ±0.15 degrees (≈ 15 km radius)
-        lats = RNG.normal(clat, 0.15, size=count).clip(12.0, 28.0)
-        lons = RNG.normal(clon, 0.15, size=count).clip(72.0, 88.0)
+        # Gaussian scatter ~ ±0.02 degrees (≈ 2 km radius) for realistic hotspot density
+        lats = RNG.normal(clat, 0.02, size=count).clip(12.0, 32.0)
+        lons = RNG.normal(clon, 0.02, size=count).clip(72.0, 88.0)
         for lat, lon in zip(lats, lons):
             rows.append({"latitude": lat, "longitude": lon})
         hotspot_ids_used.extend([centre] * count)
 
     # ---- 2. Remaining random accidents across India -------------------------
     n_random = N_TOTAL - len(rows)
-    rand_lats = RNG.uniform(12.0, 28.0, size=n_random)
+    rand_lats = RNG.uniform(12.0, 30.0, size=n_random)
     rand_lons = RNG.uniform(72.0, 88.0, size=n_random)
     for lat, lon in zip(rand_lats, rand_lons):
         rows.append({"latitude": lat, "longitude": lon})

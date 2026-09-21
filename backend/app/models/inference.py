@@ -83,10 +83,27 @@ class RiskPredictor:
     # Loading                                                                  #
     # ---------------------------------------------------------------------- #
 
+    def _resolve(self, p: str) -> str:
+        if not p:
+            return p
+        from pathlib import Path
+        path = Path(p)
+        if path.exists():
+            return str(path)
+        project_root = Path(__file__).resolve().parents[3]
+        if (project_root / path).exists():
+            return str(project_root / path)
+        if (project_root / "data-science" / path).exists():
+            return str(project_root / "data-science" / path)
+        return p
+
     def _load_model(self, model_path: str, preprocessor_path: str) -> None:
         if not _SKLEARN_AVAILABLE:
             logger.warning("scikit-learn stack unavailable — skipping model load.")
             return
+
+        model_path = self._resolve(model_path)
+        preprocessor_path = self._resolve(preprocessor_path)
 
         if not os.path.exists(model_path):
             logger.warning("Model file not found at '%s' — using rule-based fallback.", model_path)
@@ -110,6 +127,8 @@ class RiskPredictor:
     def _load_hotspots(self, hotspot_path: str) -> None:
         if not _SKLEARN_AVAILABLE:
             return
+
+        hotspot_path = self._resolve(hotspot_path)
 
         if not os.path.exists(hotspot_path):
             logger.warning("Hotspot CSV not found at '%s' — hotspot detection disabled.", hotspot_path)
@@ -176,6 +195,7 @@ class RiskPredictor:
                 lat=lat,
                 lon=lon,
                 speed_kmh=speed_kmh,
+                speed_limit_kmh=speed_limit_kmh,
                 speed_ratio=speed_ratio,
                 hour=hour,
                 day_of_week=day_of_week,
@@ -183,6 +203,9 @@ class RiskPredictor:
                 traffic_level=traffic_level,
                 road_type=road_type,
                 lighting=lighting,
+                in_hotspot=in_hotspot,
+                dist_m=dist_m,
+                hotspot_row=hotspot_row,
                 historical_accident_count=historical_accident_count,
             )
         else:
@@ -214,6 +237,7 @@ class RiskPredictor:
         lat: float,
         lon: float,
         speed_kmh: float,
+        speed_limit_kmh: Optional[float],
         speed_ratio: float,
         hour: int,
         day_of_week: int,
@@ -221,53 +245,64 @@ class RiskPredictor:
         traffic_level: str,
         road_type: str,
         lighting: str,
+        in_hotspot: bool,
+        dist_m: Optional[float],
+        hotspot_row: Optional[dict],
         historical_accident_count: int,
     ) -> int:
         import pandas as pd  # noqa: PLC0415
         import numpy as np  # noqa: PLC0415
 
+        _weather_map = {"clear": 0, "cloudy": 1, "rain": 2, "heavy_rain": 3, "fog": 4, "storm": 5}
+        _traffic_map = {"low": 0, "moderate": 1, "heavy": 2}
+        _road_map = {"urban": 0, "rural": 1, "highway": 2, "expressway": 3}
+        _lighting_map = {"daylight": 0, "dusk_dawn": 1, "night_lit": 2, "night_unlit": 3}
+
+        limit = speed_limit_kmh if speed_limit_kmh is not None else 50.0
+        dist_km = (dist_m / 1000.0) if dist_m is not None else 999.0
+        sev_idx = float(hotspot_row.get("severity_index", 1.0)) if hotspot_row else 1.0
+
         row = {
-            "latitude": lat,
-            "longitude": lon,
-            "speed_kmh": speed_kmh,
-            "speed_ratio": speed_ratio,
-            "hour": hour,
-            "day_of_week": day_of_week,
-            "weather_rain": int(weather_code == "rain"),
-            "weather_heavy_rain": int(weather_code == "heavy_rain"),
-            "weather_fog": int(weather_code == "fog"),
-            "weather_storm": int(weather_code == "storm"),
-            "traffic_moderate": int(traffic_level == "moderate"),
-            "traffic_heavy": int(traffic_level == "heavy"),
-            "road_urban": int(road_type == "urban"),
-            "lighting_night": int(lighting in ("night", "dark")),
-            "historical_accident_count": historical_accident_count,
+            "current_speed_kmh": float(speed_kmh),
+            "speed_limit_kmh": float(limit),
+            "speed_ratio": float(speed_ratio),
+            "hour": int(hour),
+            "day_of_week": int(day_of_week),
+            "is_weekend": int(day_of_week in (5, 6)),
+            "is_night": int(hour < 6 or hour >= 20),
+            "weather_code": _weather_map.get(str(weather_code).lower(), -1),
+            "traffic_code": _traffic_map.get(str(traffic_level).lower(), -1),
+            "road_type_code": _road_map.get(str(road_type).lower(), -1),
+            "lighting_code": _lighting_map.get(str(lighting).lower(), -1),
+            "historical_accident_count": int(historical_accident_count),
+            "severity_index": float(sev_idx),
+            "distance_to_hotspot_km": float(dist_km),
         }
         df = pd.DataFrame([row])
 
         try:
             X = self._preprocessor.transform(df)
-            # Model may output probability or direct score
             if hasattr(self._model, "predict_proba"):
                 proba = self._model.predict_proba(X)
-                # Assume last column is the "high-risk" probability
-                risk_prob = float(np.max(proba[0]))
-                return int(round(risk_prob * 100))
+                risk_prob = float(proba[0][1]) if proba.shape[1] > 1 else float(proba[0][0])
+                score = int(round(risk_prob * 100))
+                # Add heuristic modifiers for severe overspeed or near-hotspot conditions
+                if speed_limit_kmh and speed_kmh > speed_limit_kmh + 10:
+                    score = max(score, 65)
+                if in_hotspot and (speed_limit_kmh and speed_kmh > speed_limit_kmh):
+                    score = max(score, 75)
+                return score
             else:
                 raw = float(self._model.predict(X)[0])
-                # If already 0-100 scale
-                if 0 <= raw <= 100:
-                    return int(round(raw))
-                # If 0-1 probability
-                return int(round(min(1.0, max(0.0, raw)) * 100))
+                return int(round(raw * 100))
         except Exception as exc:  # noqa: BLE001
             logger.warning("ML inference failed (%s) — falling back to rule-based score.", exc)
             return self._rule_based_score(
                 speed_kmh=speed_kmh,
-                speed_limit_kmh=None,
+                speed_limit_kmh=speed_limit_kmh,
                 weather_code=weather_code,
                 traffic_level=traffic_level,
-                in_hotspot=False,
+                in_hotspot=in_hotspot,
                 lighting=lighting,
             )
 

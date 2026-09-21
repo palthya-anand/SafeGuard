@@ -185,7 +185,7 @@ def evaluate_model(model: Pipeline, X_test, y_test, name: str) -> dict:
     roc_auc = roc_auc_score(y_test, y_prob)
     cm      = confusion_matrix(y_test, y_pred)
 
-    print(f"\n  ── {name} ──")
+    print(f"\n  -- {name} --")
     print(f"  Precision : {prec:.4f}")
     print(f"  Recall    : {rec:.4f}")
     print(f"  F1        : {f1:.4f}")
@@ -211,27 +211,28 @@ def main():
     print(f"  Hotspots loaded    : {len(hotspots):,}")
 
     # ── Build target ──────────────────────────────────────────────────────
+    # -- Build target ------------------------------------------------------
     y = build_target(accidents, hotspots)
     print(f"\n  Class distribution :")
     print(f"    Risk=0 (low)  : {(y == 0).sum():,} ({(y==0).mean()*100:.1f}%)")
     print(f"    Risk=1 (high) : {(y == 1).sum():,} ({(y==1).mean()*100:.1f}%)")
 
-    # ── Build feature matrix ──────────────────────────────────────────────
-    print("\n  Building feature matrix …")
+    # -- Build feature matrix ----------------------------------------------
+    print("\n  Building feature matrix...")
     X = build_feature_matrix(accidents, hotspots)
-    print(f"  Feature matrix     : {X.shape[0]} rows × {X.shape[1]} cols")
+    print(f"  Feature matrix     : {X.shape[0]} rows x {X.shape[1]} cols")
 
-    # ── Train / test split ────────────────────────────────────────────────
+    # -- Train / test split ------------------------------------------------
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.20, stratify=y, random_state=RANDOM_STATE
     )
     print(f"  Train size         : {len(X_train):,}")
     print(f"  Test  size         : {len(X_test):,}")
 
-    # ── Preprocessor (StandardScaler) ─────────────────────────────────────
+    # -- Preprocessor (StandardScaler) -------------------------------------
     scaler = StandardScaler()
 
-    # ── Pipeline 1: Logistic Regression (baseline) ────────────────────────
+    # -- Pipeline 1: Logistic Regression (baseline) ------------------------
     lr_pipe = Pipeline([
         ("scaler", StandardScaler()),
         ("clf",    LogisticRegression(max_iter=1000, random_state=RANDOM_STATE)),
@@ -239,7 +240,7 @@ def main():
     lr_pipe.fit(X_train, y_train)
     lr_metrics = evaluate_model(lr_pipe, X_test, y_test, "Logistic Regression (baseline)")
 
-    # ── Pipeline 2: Random Forest (main model) ────────────────────────────
+    # -- Pipeline 2: Random Forest (main model) ----------------------------
     rf_pipe = Pipeline([
         ("scaler", StandardScaler()),
         ("clf",    RandomForestClassifier(
@@ -252,8 +253,8 @@ def main():
     rf_pipe.fit(X_train, y_train)
     rf_metrics = evaluate_model(rf_pipe, X_test, y_test, "Random Forest (main)")
 
-    # ── Comparison table ──────────────────────────────────────────────────
-    print("\n  ── Model Comparison ──────────────────────────────")
+    # -- Comparison table --------------------------------------------------
+    print("\n  -- Model Comparison ------------------------------")
     header = f"  {'Model':<30} {'Prec':>6} {'Rec':>6} {'F1':>6} {'AUC':>6}"
     print(header)
     print("  " + "-" * 55)
@@ -291,9 +292,18 @@ def main():
     with open(METADATA_FILE, "w") as fh:
         json.dump(metadata, fh, indent=2)
 
+    # Also save to data-science/models for backend/dashboard paths
+    ds_models_dir = PROJECT_ROOT / "data-science" / "models"
+    ds_models_dir.mkdir(parents=True, exist_ok=True)
+    joblib.dump(rf_pipe["clf"], ds_models_dir / "accident_risk_model.joblib")
+    joblib.dump(fitted_scaler, ds_models_dir / "preprocessor.joblib")
+    with open(ds_models_dir / "model_metadata.json", "w") as fh:
+        json.dump(metadata, fh, indent=2)
+
     print(f"\n  Saved model        : {MODEL_FILE}")
     print(f"  Saved preprocessor : {PREPROC_FILE}")
     print(f"  Saved metadata     : {METADATA_FILE}")
+    print(f"  Saved to DS dir    : {ds_models_dir}")
     print("=" * 60)
 
 

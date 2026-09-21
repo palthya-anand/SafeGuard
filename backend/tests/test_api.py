@@ -24,19 +24,25 @@ from httpx import ASGITransport, AsyncClient
 @pytest_asyncio.fixture(scope="module")
 async def client() -> AsyncIterator[AsyncClient]:
     """Spin up the full FastAPI app and yield an AsyncClient."""
-    # Ensure we use an in-memory SQLite database for tests
     import os
+    import sys
+    from pathlib import Path
+    backend_dir = str(Path(__file__).resolve().parent.parent)
+    if backend_dir not in sys.path:
+        sys.path.insert(0, backend_dir)
+
     os.environ.setdefault("DATABASE_URL", "sqlite:///./data/test_app.db")
     os.environ.setdefault("APP_ENV", "testing")
 
     # Import after env is set so Settings picks them up
-    from app.main import app  # noqa: PLC0415
+    from app.main import app, lifespan  # noqa: PLC0415
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://test",
-    ) as ac:
-        yield ac
+    async with lifespan(app):
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as ac:
+            yield ac
 
 
 # --------------------------------------------------------------------------- #
