@@ -199,23 +199,15 @@ def fetch_api_summary() -> dict:
 
 def style_dark_ax(fig, ax):
     fig.patch.set_facecolor("#0A172A")
-    if isinstance(ax, np.ndarray):
-        for a in ax.flatten():
-            a.set_facecolor("#0A172A")
-            a.tick_params(colors="#94A3B8")
-            a.xaxis.label.set_color("#CBD5E1")
-            a.yaxis.label.set_color("#CBD5E1")
-            a.title.set_color("#F8FAFC")
-            for spine in a.spines.values():
-                spine.set_color("rgba(255, 255, 255, 0.1)")
-    else:
-        ax.set_facecolor("#0A172A")
-        ax.tick_params(colors="#94A3B8")
-        ax.xaxis.label.set_color("#CBD5E1")
-        ax.yaxis.label.set_color("#CBD5E1")
-        ax.title.set_color("#F8FAFC")
-        for spine in ax.spines.values():
-            spine.set_color("rgba(255, 255, 255, 0.1)")
+    axes = ax.flatten() if isinstance(ax, np.ndarray) else [ax]
+    for a in axes:
+        a.set_facecolor("#0A172A")
+        a.tick_params(colors="#94A3B8")
+        a.xaxis.label.set_color("#CBD5E1")
+        a.yaxis.label.set_color("#CBD5E1")
+        a.title.set_color("#F8FAFC")
+        for spine in a.spines.values():
+            spine.set_color("#334155")
 
 
 # ── Sidebar & Branding ─────────────────────────────────────────────────────────
