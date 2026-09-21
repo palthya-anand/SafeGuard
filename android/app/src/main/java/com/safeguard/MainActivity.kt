@@ -116,13 +116,18 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         val locationFilter = IntentFilter(LocationMonitoringService.ACTION_LOCATION_UPDATE)
         val overspeedFilter = IntentFilter("com.safeguard.ACTION_OVERSPEED_LOCAL")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(locationReceiver, locationFilter, Context.RECEIVER_NOT_EXPORTED)
-            registerReceiver(overspeedReceiver, overspeedFilter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(locationReceiver, locationFilter)
-            registerReceiver(overspeedReceiver, overspeedFilter)
-        }
+        ContextCompat.registerReceiver(
+            this,
+            locationReceiver,
+            locationFilter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        ContextCompat.registerReceiver(
+            this,
+            overspeedReceiver,
+            overspeedFilter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     override fun onPause() {

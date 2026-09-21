@@ -28,7 +28,11 @@ backend_dir = str(Path(__file__).resolve().parent.parent)
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
-os.environ.setdefault("DATABASE_URL", "sqlite:///./data/test_app.db")
+import tempfile
+test_db_dir = Path(tempfile.gettempdir()) / "safeguard_test"
+test_db_dir.mkdir(parents=True, exist_ok=True)
+test_db_file = test_db_dir / "test_app.db"
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{test_db_file.as_posix()}")
 os.environ.setdefault("APP_ENV", "testing")
 
 from app.main import app, lifespan

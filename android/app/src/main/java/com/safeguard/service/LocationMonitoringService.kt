@@ -85,6 +85,7 @@ class LocationMonitoringService : Service() {
 
             // Broadcast for the Activity's BroadcastReceiver
             sendBroadcast(Intent(ACTION_LOCATION_UPDATE).apply {
+                setPackage(packageName)
                 putExtra(EXTRA_LATITUDE,  lat)
                 putExtra(EXTRA_LONGITUDE, lon)
                 putExtra(EXTRA_SPEED_KMH, speedKmh)
@@ -193,6 +194,7 @@ class LocationMonitoringService : Service() {
             Log.w(tag, "Local overspeed: ${speedKmh.toInt()} km/h in ${limit.toInt()} km/h zone")
             // Notify the AlertManager via a broadcast so it can show the notification
             sendBroadcast(Intent("com.safeguard.ACTION_OVERSPEED_LOCAL").apply {
+                setPackage(packageName)
                 putExtra("speed_kmh", speedKmh)
                 putExtra("limit_kmh", limit)
             })
