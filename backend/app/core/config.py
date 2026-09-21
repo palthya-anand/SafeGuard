@@ -43,7 +43,10 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Map provider                                                         #
     # ------------------------------------------------------------------ #
+    MAP_PROVIDER: str = "mapbox"
+    MAPBOX_ACCESS_TOKEN: str = ""
     MAPBOX_API_KEY: str = ""
+    MAPBOX_STYLE_ID: str = "mapbox/dark-v11"
 
     # ------------------------------------------------------------------ #
     # Push notifications                                                   #

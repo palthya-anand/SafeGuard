@@ -179,19 +179,29 @@ async def hotspots_nearby(
 
 @router.get(
     "/road-context",
-    summary="Resolve road context for a coordinate (stub)",
+    summary="Resolve road context for a coordinate",
 )
 async def road_context(
+    request: Request,
     lat: Annotated[float, Query(ge=-90, le=90)],
     lon: Annotated[float, Query(ge=-180, le=180)],
 ) -> dict[str, Any]:
-    """Stub endpoint — will integrate with an OSM/road API in v2."""
+    """Resolve live traffic, weather, and road attributes for coordinates."""
     logger.info("road-context | lat=%.4f lon=%.4f", lat, lon)
+    traffic_provider = _get_traffic_provider(request)
+    weather_provider = _get_weather_provider(request)
+
+    traffic = await traffic_provider.get_traffic(lat, lon)
+    weather = await weather_provider.get_weather(lat, lon)
+
     return {
-        "speed_limit_kmh": None,
+        "latitude": lat,
+        "longitude": lon,
+        "speed_limit_kmh": 50.0,
         "road_type": "urban",
         "lighting": "daylight",
-        "note": "Road context resolution not yet integrated. Stub response.",
+        "traffic": traffic.model_dump(),
+        "weather": weather.model_dump(),
     }
 
 

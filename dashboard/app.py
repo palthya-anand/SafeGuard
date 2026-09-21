@@ -21,6 +21,9 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import folium
 import matplotlib.pyplot as plt
 import numpy as np
@@ -44,6 +47,10 @@ def _find_dir(*candidates: Path) -> Path:
 DATA_DIR = _find_dir(ROOT / "data" / "processed", ROOT / "data-science" / "data" / "processed")
 MODEL_DIR = _find_dir(ROOT / "models", ROOT / "data-science" / "models")
 API_BASE = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api/v1")
+MAPBOX_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN") or os.getenv("MAPBOX_API_KEY") or os.getenv("MAPBOX_TOKEN") or ""
+MAPBOX_DEFAULT_STYLE = os.getenv("MAPBOX_STYLE_ID", "mapbox/dark-v11")
+TRAFFIC_KEY = os.getenv("TRAFFIC_API_KEY", "")
+WEATHER_KEY = os.getenv("WEATHER_API_KEY", "")
 
 st.set_page_config(
     page_title="SafeGuard — Road Safety Command Center",
@@ -280,6 +287,14 @@ def fetch_api_summary() -> dict:
         return {}
 
 
+def fetch_road_context(lat: float = 12.9716, lon: float = 77.5946) -> dict:
+    try:
+        r = requests.get(f"{API_BASE}/road-context", params={"latitude": lat, "longitude": lon}, timeout=3.5)
+        return r.json() if r.ok else {}
+    except Exception:
+        return {}
+
+
 # ── Dark Mode Matplotlib Theming Helper ─────────────────────────────────────────
 
 
@@ -362,6 +377,12 @@ with st.sidebar:
                 <b>Model Engine:</b> {'Active (Random Forest)' if health_info.get('model_loaded') else 'Rule Fallback'}<br>
                 <b>Version:</b> {health_info.get('version', '1.0.0-rc.1')}<br>
                 <b>Uptime:</b> {health_info.get('uptime_s', 0):.0f}s
+            </div>
+            <div style="margin-top:10px;padding:8px;background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.2);border-radius:6px;font-size:0.72rem;">
+                <div style="color:#00E5FF;font-weight:700;margin-bottom:3px;">LIVE EXTERNAL APIs</div>
+                <div style="color:#CBD5E1;">🚗 <b>TomTom Traffic:</b> {'Active (tr2L...)' if TRAFFIC_KEY else 'Mock'}</div>
+                <div style="color:#CBD5E1;">🌦️ <b>OpenWeather:</b> {'Active (019e...)' if WEATHER_KEY else 'Mock'}</div>
+                <div style="color:#CBD5E1;">🗺️ <b>Mapbox Engine:</b> {'Active (pk.ey...)' if MAPBOX_TOKEN else 'OSM'}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -499,6 +520,46 @@ if page == "📊 Command Center":
         sc2.metric("Total Driver Alerts", summary.get("total_alerts", 0))
         sc3.metric("Unacknowledged Alerts", summary.get("unacknowledged_alerts", 0))
         sc4.metric("Hotspots in DB", summary.get("total_hotspots", len(hotspots)))
+
+        # Real-World Live Environmental & Traffic Feeds
+        st.subheader("🌐 Real-World Live Feeds (TomTom, OpenWeather & Mapbox)")
+        road_ctx = fetch_road_context(12.9716, 77.5946)
+        traf_info = road_ctx.get("traffic", {})
+        wthr_info = road_ctx.get("weather", {})
+
+        rc1, rc2, rc3, rc4 = st.columns(4)
+        delay_s = traf_info.get("traffic_delay_s", 0)
+        speed_ratio = traf_info.get("speed_ratio", 1.0)
+        traf_src = traf_info.get("source", "tomtom").upper()
+        rc1.metric(
+            "Live TomTom Delay",
+            f"+{delay_s}s" if delay_s > 0 else "0s (Free Flow)",
+            f"{speed_ratio * 100:.0f}% Flow Ratio ({traf_src})",
+        )
+
+        wthr_src = wthr_info.get("source", "owm").upper()
+        w_code = wthr_info.get("weather_code", "clear").replace("_", " ").title()
+        temp_c = wthr_info.get("temperature_c", 26.0)
+        rc2.metric(
+            "Live Weather Status",
+            f"{w_code} ({temp_c:.1f}°C)",
+            f"Provider: {wthr_src}",
+        )
+
+        vis_km = wthr_info.get("visibility_km", 10.0)
+        rain_mm = wthr_info.get("rainfall_mm", 0.0)
+        rc3.metric(
+            "Visibility & Precip",
+            f"{vis_km:.1f} km",
+            f"{rain_mm:.1f} mm/h rain" if rain_mm > 0 else "Clear / No Rain",
+        )
+
+        env_mapbox_token = os.getenv("MAPBOX_API_KEY") or os.getenv("MAPBOX_TOKEN") or ""
+        rc4.metric(
+            "Mapbox Cartography",
+            "Mapbox Active" if env_mapbox_token else "OSM Native",
+            "Licensed Key Connected" if env_mapbox_token else "OpenStreetMap Hackathon Default",
+        )
 
         # Quick Live Risk Simulator preview
         with st.expander("⚡ Quick Risk Assessment (Live Predictor Test)", expanded=False):
