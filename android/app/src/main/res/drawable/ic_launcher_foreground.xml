@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Vector launcher icon for SafeGuard.
+  Used as ic_launcher.xml in mipmap-anydpi-v26 as foreground layer.
+  For older API fallbacks, PNG bitmaps are placed in density buckets.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+  <!-- Shield shape (SafeGuard brand) -->
+  <path
+      android:fillColor="#1565C0"
+      android:pathData="M54,12 L84,24 L84,52 C84,70 70,82 54,90 C38,82 24,70 24,52 L24,24 Z" />
+
+  <!-- Checkmark -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:strokeColor="#FFFFFF"
+      android:strokeWidth="2"
+      android:pathData="M40,54 L50,64 L68,46" />
+</vector>

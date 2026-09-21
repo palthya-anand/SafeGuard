@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Risk level indicator colours -->
+    <color name="risk_low">#4CAF50</color>
+    <color name="risk_moderate">#FF9800</color>
+    <color name="risk_high">#F44336</color>
+    <color name="risk_critical">#B71C1C</color>
+
+    <!-- Brand colours -->
+    <color name="primary">#1565C0</color>
+    <color name="primary_dark">#003c8f</color>
+    <color name="primary_light">#5e92f3</color>
+    <color name="on_primary">#FFFFFF</color>
+
+    <!-- Surface / background -->
+    <color name="background">#F5F5F5</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="on_surface">#212121</color>
+    <color name="on_surface_variant">#757575</color>
+</resources>

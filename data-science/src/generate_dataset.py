@@ -213,9 +213,9 @@ def main():
     print("=" * 55)
     print(f"  Rows generated     : {len(df):,}")
     print(f"  Columns            : {list(df.columns)}")
-    print(f"  Date range         : {df['date'].min()} → {df['date'].max()}")
-    print(f"  Lat range          : {df['latitude'].min():.4f} – {df['latitude'].max():.4f}")
-    print(f"  Lon range          : {df['longitude'].min():.4f} – {df['longitude'].max():.4f}")
+    print(f"  Date range         : {df['date'].min()} -> {df['date'].max()}")
+    print(f"  Lat range          : {df['latitude'].min():.4f} - {df['latitude'].max():.4f}")
+    print(f"  Lon range          : {df['longitude'].min():.4f} - {df['longitude'].max():.4f}")
     print(f"  Severity dist      :")
     for sev, cnt in df["severity"].value_counts().items():
         print(f"    {sev:<10}: {cnt:>5} ({cnt/len(df)*100:.1f}%)")
