@@ -1475,6 +1475,82 @@ elif page == "🧭 Route Risk Comparison":
     st.pyplot(fig)
     plt.close()
 
+    st.divider()
+    st.subheader("🗺️ Geospatial Corridor Visualization (Mapbox Navigation Engine)")
+    st.caption("Interactive path trajectories comparing urban arterial congestion corridors vs peripheral bypass routes on Mapbox Navigation Night.")
+
+    if active_token:
+        route_tile_url = f"https://api.mapbox.com/styles/v1/mapbox/navigation-night-v1/tiles/256/{{z}}/{{x}}/{{y}}@2x?access_token={active_token}"
+        route_map = folium.Map(
+            location=[13.0200, 77.6500],
+            zoom_start=10,
+            tiles=route_tile_url,
+            name="Mapbox Navigation Night (Primary)",
+            attr='&copy; <a href="https://www.mapbox.com/about/maps/" target="_blank">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
+        )
+        folium.TileLayer("OpenStreetMap", name="OpenStreetMap (OSM Fallback)", attr='&copy; OpenStreetMap contributors').add_to(route_map)
+        folium.LayerControl(position="topright").add_to(route_map)
+    else:
+        route_map = folium.Map(
+            location=[13.0200, 77.6500],
+            zoom_start=10,
+            tiles="OpenStreetMap",
+            name="OpenStreetMap",
+            attr='&copy; OpenStreetMap contributors',
+        )
+
+    # Route A trajectory (Urban Arterial corridor e.g. Silk Board -> Airport via Bellary Rd)
+    route_a_coords = [
+        [12.8452, 77.6602],
+        [12.9172, 77.6228],
+        [12.9716, 77.5946],
+        [13.0358, 77.5970],
+        [13.1007, 77.5963],
+        [13.1986, 77.7066],
+    ]
+
+    # Route B trajectory (Peripheral expressway corridor via Outer Ring Rd / Satellite Highway)
+    route_b_coords = [
+        [12.8452, 77.6602],
+        [12.8900, 77.7200],
+        [12.9600, 77.7500],
+        [13.0700, 77.7600],
+        [13.1986, 77.7066],
+    ]
+
+    # Draw Route A (Neon Cyan)
+    folium.PolyLine(
+        locations=route_a_coords,
+        color="#00E5FF",
+        weight=4.5,
+        opacity=0.9,
+        popup=f"<b>Option A: {name_a}</b><br>Risk: {score_a}/100 ({lvl_a})<br>Time: {total_time_a}m",
+    ).add_to(route_map)
+
+    # Draw Route B (Emerald Green)
+    folium.PolyLine(
+        locations=route_b_coords,
+        color="#21C77A",
+        weight=4.5,
+        opacity=0.9,
+        popup=f"<b>Option B: {name_b}</b><br>Risk: {score_b}/100 ({lvl_b})<br>Time: {total_time_b}m",
+    ).add_to(route_map)
+
+    # Start & End Markers
+    folium.Marker(
+        location=route_a_coords[0],
+        popup="<b>Trip Origin</b><br>Electronic City Hub",
+        icon=folium.Icon(color="blue", icon="play"),
+    ).add_to(route_map)
+
+    folium.Marker(
+        location=route_a_coords[-1],
+        popup="<b>Trip Destination</b><br>Kempegowda Intl Airport",
+        icon=folium.Icon(color="green", icon="flag"),
+    ).add_to(route_map)
+
+    folium_static(route_map, width=1050, height=450)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 8: SYSTEM DIAGNOSTICS & DATA QUALITY AUDIT

@@ -67,7 +67,10 @@ class Settings(BaseSettings):
     OVERSPEED_TOLERANCE_KMH: float = 5.0
     ALERT_COOLDOWN_SECONDS: int = 30
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=(".env", "../.env"),
+        extra="ignore",
+    )
 
 
 # Singleton used throughout the application
