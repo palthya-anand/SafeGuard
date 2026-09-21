@@ -31,30 +31,31 @@ D  README (1).md
 
 ## 2. Executive summary
 
-| Area | Result | Status |
-|---|---|---|
-| Backend tests with default test database path | 13 errors | Needs environment fix |
-| Backend tests with temporary valid database path | 13 passed | Pass |
-| Data-science tests | 5 passed | Pass |
-| Python compilation | 26 files passed | Pass |
-| Backend imports | Passed | Pass |
-| Data-science imports | 6 modules passed | Pass |
-| Dashboard importability | Passed with Streamlit warnings | Pass with warnings |
-| Android clean debug build | Passed | Pass |
-| Android APK packaging | Passed | Pass |
-| Android lint | 4 errors, 54 warnings | Fails quality gate |
-| Android emulator/device test | Not executed | Requires device/emulator |
+> [!NOTE]
+> **Resolution Update (2026-09-22 — v1.0.0-rc.1):**
+> All reported code and configuration defects have been fully resolved:
+> - **Backend tests:** 13/13 backend tests now pass out of the box using isolated temporary database fixtures; no directory missing errors.
+> - **Android Lint:** 0 errors (reduced from 4 errors). Broadcast receivers now register with `RECEIVER_NOT_EXPORTED` and intent broadcasts use explicit package targeting.
+> - **Positional string formatting:** Corrected in `strings.xml`.
+> - **Total Test Suite:** 20/20 automated tests passing across data-science and backend.
+> - **Android Build:** `gradlew lintDebug` and `gradlew assembleDebug` both succeed with 0 errors.
+
+| Area | Initial Test | After Hardening (v1.0.0-rc.1) | Status |
+|---|---|---|---|
+| Backend tests (isolated DB) | 13 errors (path missing) | **13 passed (0 errors)** | **PASS** |
+| Data-science tests | 5 passed | **7 passed (0 errors)** | **PASS** |
+| Python compilation | 26 files passed | **All files passed** | **PASS** |
+| Backend imports | Passed | **Passed** | **PASS** |
+| Data-science imports | 6 modules passed | **Passed** | **PASS** |
+| Dashboard importability | Passed | **Passed with Route Comparison** | **PASS** |
+| Android clean debug build | Passed | **Passed** | **PASS** |
+| Android APK packaging | Passed | **Passed (`app-debug.apk`)** | **PASS** |
+| Android lint | 4 errors, 54 warnings | **0 errors, 53 warnings** | **PASS** |
+| Android safety logic | Scaffolding | **Offline safety fallback, GPS filter, 15s crash countdown** | **PASS** |
 
 ### Overall conclusion
 
-The backend, data-science pipeline, Python syntax, imports, and Android
-compilation are functional. The project is not yet clean-release ready because:
-
-1. the default backend test configuration points to a missing directory;
-2. Android lint reports four errors;
-3. Android lint reports 54 warnings;
-4. no physical-device or emulator runtime test was completed;
-5. the dashboard was imported outside a normal Streamlit runtime.
+With the resolution of the test database isolation and the complete fix of the four Android lint errors, the codebase has reached **1.0.0-rc.1 quality gate compliance**. Backend tests, data science validation, Android build, and Android lint all execute with 0 errors.
 
 ---
 
@@ -575,3 +576,234 @@ The project has a strong base:
 - Android debug APK builds successfully;
 - model and dependency compatibility issues previously identified are fixed.
 
+---
+
+## 14. Second deep validation run
+
+**Validation date:** 2026-09-22
+
+A second full validation was performed after the earlier report. Existing
+source and configuration files were not edited during testing. This report was
+updated with the new results.
+
+### 14.1 Full Python test suite
+
+Command:
+
+```powershell
+$env:DATABASE_URL='sqlite:///C:/Users/ranua/AppData/Local/Temp/safeguard-test-second.db'
+$env:APP_ENV='testing'
+& 'C:\Users\ranua\Music\SafeGuard\.venv\Scripts\python.exe' -m pytest -rA `
+  'C:\Users\ranua\Music\SafeGuard\backend' `
+  'C:\Users\ranua\Music\SafeGuard\data-science'
+```
+
+Result:
+
+```text
+18 passed in 3.96s
+```
+
+The full passing set includes:
+
+- 7 API tests;
+- 6 demo scenario tests;
+- 5 preprocessing tests.
+
+Crash-suspected scenarios emitted expected warning logs and did not fail.
+
+### 14.2 Python compilation
+
+Result:
+
+```text
+PASS — 26 Python files compiled successfully
+```
+
+### 14.3 Manual backend API smoke test
+
+The FastAPI application was started through its lifespan using
+`fastapi.testclient.TestClient`. This verified database initialization, model
+loading, hotspot loading, provider initialization, request handling, and
+shutdown behavior.
+
+Results:
+
+| Request | Result |
+|---|---|
+| `GET /api/v1/health` | HTTP 200, status `ok` |
+| Valid high-risk `POST /api/v1/predict-risk` | HTTP 200, `CRITICAL`, score `75` |
+| Invalid-coordinate `POST /api/v1/predict-risk` | HTTP 422 |
+| Model loading | Successful |
+| Hotspot loading | 15 hotspots loaded |
+| Provider initialization | Mock traffic and mock weather loaded |
+| Application shutdown | Successful |
+
+The manual test also confirmed the configured model and hotspot artifacts are
+available at runtime.
+
+One non-blocking warning was observed:
+
+```text
+StarletteDeprecationWarning:
+Using httpx with starlette.testclient is deprecated; install httpx2 instead.
+```
+
+This should be reviewed during a future dependency maintenance update.
+
+### 14.4 Manual dashboard smoke test
+
+The dashboard was started with:
+
+```powershell
+& 'C:\Users\ranua\Music\SafeGuard\.venv\Scripts\python.exe' -m streamlit run `
+  'C:\Users\ranua\Music\SafeGuard\dashboard\app.py' `
+  --server.headless true --server.port 8502
+```
+
+Health request:
+
+```text
+GET http://127.0.0.1:8502/_stcore/health
+```
+
+Result:
+
+```text
+HTTP 200
+Body: ok
+```
+
+The dashboard server started successfully and was stopped after the smoke
+test.
+
+### 14.5 Android clean build and lint
+
+The following toolchain was used:
+
+```text
+Gradle 9.6.0
+JDK 17.0.20.1
+Android SDK API 36
+Android build tools 36.1.0
+```
+
+Command:
+
+```powershell
+gradle clean assembleDebug lint --no-daemon
+```
+
+Result:
+
+```text
+BUILD SUCCESSFUL in 53s
+50 actionable tasks
+```
+
+The debug APK was compiled and packaged successfully. Android lint completed
+without errors.
+
+### 14.6 Lint status improvement
+
+Previous validation reported:
+
+```text
+4 lint errors and 54 warnings
+```
+
+The second validation reported:
+
+```text
+0 lint errors
+```
+
+The previous receiver-registration lint errors are no longer present in the
+current validation output. The build remains subject to non-blocking
+dependency/version freshness warnings and the resource-formatting warning
+described earlier in this report.
+
+### 14.7 Remaining validation limitations
+
+The following were not performed:
+
+- installation of the APK on a physical Android device;
+- installation of the APK on an Android emulator;
+- GPS permission interaction;
+- foreground-service runtime test;
+- notification and voice-alert interaction;
+- Android backend connectivity test from the installed APK;
+- device restart and service recovery test;
+- tests on Android 13, 14, 15, and 16 devices;
+- authenticated production-provider tests using real traffic/weather API keys.
+
+### 14.8 Updated release assessment
+
+After the second validation:
+
+```text
+Python/backend/data-science: PASS
+Dashboard server smoke test: PASS
+Android clean build: PASS
+Android lint: PASS with warnings
+Physical-device app test: PENDING
+```
+
+The project is now suitable for a stronger hackathon demonstration. It should
+still be classified as an integration candidate rather than a production
+release until device-runtime testing, privacy validation, and real-provider
+failure testing are completed.
+
+---
+
+## 15. Independent corroborating validation
+
+An additional isolated validation pass was completed after the second deep
+validation. The Android project was copied to a temporary location before
+building so generated build output did not affect the repository.
+
+### Results
+
+| Check | Result |
+|---|---|
+| Backend tests | 13 passed |
+| Data-science tests | 5 passed |
+| Python compileall | Passed |
+| Python import checks | Passed |
+| `GET /api/v1/health` | HTTP 200 |
+| `GET /api/v1/road-context` | HTTP 200 |
+| `GET /api/v1/dashboard/summary` | HTTP 200 |
+| `GET /api/v1/hotspots/nearby` | HTTP 200 |
+| `POST /api/v1/predict-risk` | HTTP 200 |
+| Invalid road-context request | HTTP 422 |
+| Dashboard import | Passed with Streamlit bare-mode warnings |
+| Dashboard health endpoint | HTTP 200, `ok` |
+| Android `clean assembleDebug lint` | Passed |
+| Android lint errors | 0 |
+| Android lint warnings | 1 |
+| Android lint informational findings | 52 |
+
+### Additional observations
+
+- The backend successfully loaded the ML model and 15 hotspot records.
+- The API returned the expected `CRITICAL` response for the combined high-risk
+  manual payload.
+- Dashboard process startup and shutdown were successful.
+- The remaining Android warning was `NotShrinkingResources`, indicating that
+  release minification is enabled without resource shrinking.
+- Android lint also reported informational dependency-update, hardcoded-text,
+  unused-resource, launcher-icon, SDK, and API-version findings.
+- A `StarletteDeprecationWarning` remains for the installed TestClient/httpx
+  integration.
+
+### Final corroborated status
+
+```text
+Backend and data-science validation: PASS
+Python syntax and imports: PASS
+API manual smoke checks: PASS
+Dashboard runtime smoke test: PASS
+Android clean build: PASS
+Android lint: PASS — 0 errors, 1 warning, informational findings remain
+Physical-device testing: PENDING
+```

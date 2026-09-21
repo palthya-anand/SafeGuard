@@ -114,6 +114,11 @@ async def compute_risk(
     risk_level: str = result["risk_level"]
 
     # 4. Build response
+    t_source = "device" if request.traffic_level not in ("unknown", "") else getattr(traffic_data, "source", "mock")
+    w_source = "device" if request.weather not in ("unknown", "") else getattr(weather_data, "source", "mock")
+    from datetime import datetime  # noqa: PLC0415
+    from app.core.config import settings  # noqa: PLC0415
+
     return PredictRiskResponse(
         risk_score=result["risk_score"],
         risk_level=risk_level,
@@ -123,4 +128,8 @@ async def compute_risk(
         message=_RISK_MESSAGES.get(risk_level, "Drive safely."),
         reasons=result.get("reasons", []),
         recommended_action=_RECOMMENDED_ACTIONS.get(risk_level, "Drive safely."),
+        traffic_source=t_source,
+        weather_source=w_source,
+        provider_mode=settings.TRAFFIC_PROVIDER if settings.TRAFFIC_PROVIDER != "mock" else "mock",
+        server_time=datetime.now(timezone.utc),
     )

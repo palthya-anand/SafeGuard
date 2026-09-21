@@ -10,6 +10,28 @@ Versioning follows a simple semantic-style scheme:
 
 ---
 
+## [1.0.0-rc.1] — Quality & Resilience Hardening (2026-09-22)
+
+### Fixed & Hardened
+- **Android Quality & Lint**:
+  - Replaced platform broadcast receiver registration with `ContextCompat.registerReceiver(..., RECEIVER_NOT_EXPORTED)` to prevent cross-app interception.
+  - Set explicit intent packages (`setPackage(packageName)`) on `ACTION_LOCATION_UPDATE` and `ACTION_OVERSPEED_LOCAL` broadcasts, eliminating implicit broadcast vulnerabilities.
+  - Resolved Android Lint errors down to **0 errors** (`./gradlew lintDebug`).
+  - Added GPS accuracy gating (`accuracy > 35m` filtered out), stationary speed noise suppression (`< 3 km/h` clamped to 0), and exponential moving average speed smoothing.
+  - Implemented 15-second interactive crash confirmation countdown dialog with user-cancelable `[I AM OK]` button.
+  - Added offline safety fallback in `MonitoringViewModel` to guarantee local overspeed alerts when disconnected from backend.
+- **FastAPI Backend & Database**:
+  - Added composite SQLite/PostgreSQL indices on `Telemetry`, `Alert`, and `Hotspot` tables for high-throughput querying.
+  - Added provider transparency metadata (`traffic_source`, `weather_source`, `provider_mode`, `server_time`) to the risk prediction schema.
+  - Fixed test database file locking by utilizing unique temporary directories across test suites.
+- **Data Science**:
+  - Implemented automated data quality audit (`data_quality.py`) verifying 100% data retention, coordinate constraints, and hotspot clustering validity.
+- **Streamlit Analytics Dashboard**:
+  - Added **🧭 Route Risk Comparison** page with preset corridors, custom parameter simulation, side-by-side comparative charts, and explainable safety trade-offs.
+  - Multi-candidate directory discovery for seamless data and model artifact loading.
+
+---
+
 ## [1.0.0-hackathon] — Planned Release
 
 ### Added

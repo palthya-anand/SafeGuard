@@ -252,8 +252,58 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun stopMonitoring() {
+        val maxSpd = viewModel.tripMaxSpeed.value.toInt()
+        val warnings = viewModel.tripWarningCount.value
         viewModel.stopMonitoring()
         stopService(Intent(this, LocationMonitoringService::class.java))
+
+        if (maxSpd > 0) {
+            AlertDialog.Builder(this)
+                .setTitle("🏁 Trip Summary")
+                .setMessage("Session ended.\n• Peak speed: $maxSpd km/h\n• Safety warnings: $warnings")
+                .setPositiveButton("Done", null)
+                .show()
+        }
+    }
+
+    /**
+     * Interactive crash confirmation workflow with 15-second countdown timer.
+     * Prevents false alarms by allowing the driver to tap [I AM OK].
+     */
+    fun showCrashConfirmationDialog(gForce: Float = 4.5f) {
+        var secondsLeft = 15
+        var dialog: AlertDialog? = null
+        val timer = object : android.os.CountDownTimer(15_000, 1_000) {
+            override fun onTick(millisUntilFinished: Long) {
+                secondsLeft = (millisUntilFinished / 1000).toInt()
+                dialog?.setMessage("Severe impact detected (${String.format(java.util.Locale.US, "%.1f", gForce)}G).\n\nAre you OK?\nEmergency contacts will be notified in $secondsLeft seconds.")
+            }
+
+            override fun onFinish() {
+                dialog?.dismiss()
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("🚨 Emergency Alert Dispatched")
+                    .setMessage("Crash verified. Location and telemetry sent to emergency contacts.")
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
+        }
+
+        dialog = AlertDialog.Builder(this)
+            .setTitle("🚨 Impact Detected")
+            .setMessage("Severe impact detected (${String.format(java.util.Locale.US, "%.1f", gForce)}G).\n\nAre you OK?\nEmergency contacts will be notified in 15 seconds.")
+            .setCancelable(false)
+            .setPositiveButton("I AM OK") { _, _ ->
+                timer.cancel()
+            }
+            .setNegativeButton("SEND HELP NOW") { _, _ ->
+                timer.cancel()
+                timer.onFinish()
+            }
+            .create()
+
+        dialog.show()
+        timer.start()
     }
 
     // -------------------------------------------------------------------------

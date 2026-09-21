@@ -25,7 +25,10 @@ data class PredictRiskResponse(
     val speed_limit_kmh: Float?,
     val message: String,
     val reasons: List<String>,
-    val recommended_action: String
+    val recommended_action: String,
+    val traffic_source: String? = null,
+    val weather_source: String? = null,
+    val provider_mode: String? = "mock"
 )
 
 /**

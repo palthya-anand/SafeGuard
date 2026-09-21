@@ -49,6 +49,12 @@ class MonitoringViewModel : ViewModel() {
     private val _errorMessage    = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _tripWarningCount = MutableStateFlow(0)
+    val tripWarningCount: StateFlow<Int> = _tripWarningCount.asStateFlow()
+
+    private val _tripMaxSpeed    = MutableStateFlow(0f)
+    val tripMaxSpeed: StateFlow<Float> = _tripMaxSpeed.asStateFlow()
+
     // -------------------------------------------------------------------------
     // Private fields
     // -------------------------------------------------------------------------
@@ -99,6 +105,9 @@ class MonitoringViewModel : ViewModel() {
     fun onLocationUpdate(lat: Double, lon: Double, speedKmh: Float) {
         _currentSpeed.value    = speedKmh
         _currentLocation.value = Pair(lat, lon)
+        if (speedKmh > _tripMaxSpeed.value) {
+            _tripMaxSpeed.value = speedKmh
+        }
 
         if (!_isMonitoring.value) return
 
@@ -136,12 +145,46 @@ class MonitoringViewModel : ViewModel() {
             api.predictRisk(request)
         }.onSuccess { response ->
             if (response.isSuccessful) {
-                response.body()?.let { _riskResponse.value = it }
+                response.body()?.let {
+                    _riskResponse.value = it
+                    if (it.risk_level in listOf("HIGH", "CRITICAL")) {
+                        _tripWarningCount.value += 1
+                    }
+                }
             } else {
-                _errorMessage.value = "Risk API error ${response.code()}"
+                _errorMessage.value = "Risk API error ${response.code()} (Running in local offline mode)"
+                fallbackOfflineRisk(lat, lon, speedKmh)
             }
         }.onFailure { err ->
-            _errorMessage.value = "Network error: ${err.localizedMessage}"
+            _errorMessage.value = "Offline mode: Local safety active"
+            fallbackOfflineRisk(lat, lon, speedKmh)
+        }
+    }
+
+    /**
+     * Local offline risk estimation when the backend server is unreachable.
+     * Guarantees safety features (speed warnings) continue operating offline.
+     */
+    private fun fallbackOfflineRisk(lat: Double, lon: Double, speedKmh: Float) {
+        val limit = speedLimit ?: 50f
+        val isOverspeed = speedKmh > (limit + 5f)
+        val score = if (isOverspeed) 70 else 20
+        val level = if (isOverspeed) "HIGH" else "LOW"
+        val reasons = if (isOverspeed) listOf("Exceeding speed limit by ${(speedKmh - limit).toInt()} km/h [Offline Mode]") else emptyList()
+
+        _riskResponse.value = PredictRiskResponse(
+            risk_score = score,
+            risk_level = level,
+            hotspot = false,
+            distance_to_hotspot_m = null,
+            speed_limit_kmh = limit,
+            message = if (isOverspeed) "Slow down — local speed limit exceeded." else "Monitoring active (Offline mode).",
+            reasons = reasons,
+            recommended_action = if (isOverspeed) "Reduce speed immediately." else "Drive safely.",
+            provider_mode = "offline"
+        )
+        if (isOverspeed) {
+            _tripWarningCount.value += 1
         }
     }
 

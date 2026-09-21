@@ -59,3 +59,24 @@ def test_no_duplicates(clean_df):
     """accident_id must be unique across all rows."""
     dup_count = clean_df["accident_id"].duplicated().sum()
     assert dup_count == 0, f"Found {dup_count} duplicate accident_id entries"
+
+
+def test_hotspots_file_valid():
+    """Hotspots CSV must exist and contain at least 10 clusters."""
+    hotspots_file = PROJECT_ROOT / "data" / "processed" / "hotspots.csv"
+    assert hotspots_file.exists(), f"Missing hotspots file: {hotspots_file}"
+    df = pd.read_csv(hotspots_file)
+    assert len(df) >= 10, f"Expected >=10 hotspots, found {len(df)}"
+    for col in ["hotspot_id", "latitude", "longitude", "accident_count", "risk_level"]:
+        assert col in df.columns, f"Missing required hotspot column: {col}"
+
+
+def test_data_quality_report():
+    """Data quality report must exist and show 100% retention rate."""
+    report_file = PROJECT_ROOT / "data" / "processed" / "data_quality_report.json"
+    assert report_file.exists(), f"Missing quality report: {report_file}"
+    import json
+    with open(report_file) as f:
+        data = json.load(f)
+    assert data["dataset_integrity"]["retention_rate_pct"] == 100.0
+    assert data["compliance"]["model_ready"] is True

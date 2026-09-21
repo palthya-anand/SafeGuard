@@ -1,0 +1,72 @@
+{
+  "report_generated_at": "2026-09-22T00:42:01.028726",
+  "dataset_integrity": {
+    "raw_row_count": 5000,
+    "cleaned_row_count": 5000,
+    "retention_rate_pct": 100.0,
+    "duplicate_count": 0,
+    "missing_values_by_column": {
+      "accident_id": 0,
+      "latitude": 0,
+      "longitude": 0,
+      "date": 0,
+      "time": 0,
+      "weather": 0,
+      "road_type": 0,
+      "lighting": 0,
+      "traffic_density": 0,
+      "vehicle_type": 0,
+      "speed_kmh": 0,
+      "speed_limit_kmh": 0,
+      "severity": 0,
+      "datetime": 0,
+      "hour": 0,
+      "day_of_week": 0,
+      "month": 0,
+      "is_weekend": 0,
+      "is_night": 0,
+      "severity_code": 0
+    },
+    "speed_outlier_count": 0
+  },
+  "geographic_coverage": {
+    "latitude_bounds": {
+      "min": 12.0057,
+      "max": 29.9949
+    },
+    "longitude_bounds": {
+      "min": 72.0091,
+      "max": 88.0
+    },
+    "hotspot_cluster_count": 15,
+    "high_risk_hotspot_count": 15,
+    "average_hotspot_radius_m": 5669.6
+  },
+  "distributions": {
+    "severity": {
+      "moderate": 1722,
+      "minor": 1671,
+      "severe": 1056,
+      "fatal": 551
+    },
+    "weather": {
+      "clear": 2019,
+      "cloudy": 1217,
+      "rain": 1063,
+      "heavy_rain": 321,
+      "fog": 225,
+      "storm": 155
+    },
+    "road_type": {
+      "urban": 1767,
+      "highway": 1740,
+      "rural": 1005,
+      "expressway": 488
+    }
+  },
+  "compliance": {
+    "target_leakage_checks_passed": true,
+    "canonical_features_aligned": true,
+    "model_ready": true
+  }
+}

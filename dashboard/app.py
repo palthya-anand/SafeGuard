@@ -29,8 +29,14 @@ from streamlit.components.v1 import html as st_html
 # ── Configuration ──────────────────────────────────────────────────────────────
 
 ROOT = Path(__file__).parent.parent
-DATA_DIR = ROOT / "data-science" / "data" / "processed"
-MODEL_DIR = ROOT / "data-science" / "models"
+def _find_dir(*candidates: Path) -> Path:
+    for c in candidates:
+        if c.exists():
+            return c
+    return candidates[0]
+
+DATA_DIR = _find_dir(ROOT / "data" / "processed", ROOT / "data-science" / "data" / "processed")
+MODEL_DIR = _find_dir(ROOT / "models", ROOT / "data-science" / "models")
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000/api/v1")
 
 st.set_page_config(
@@ -92,7 +98,7 @@ with st.sidebar:
     page = st.radio(
         "Navigation",
         ["📊 Overview", "🗺️ Accident Heatmap", "📈 Accident Trends", "⚠️ Risk Analysis",
-         "🤖 Model Evaluation", "🔴 Live Demo"],
+         "🤖 Model Evaluation", "🔴 Live Demo", "🧭 Route Risk Comparison"],
         label_visibility="collapsed",
     )
     st.divider()
@@ -485,3 +491,201 @@ elif page == "🔴 Live Demo":
                 st.error("Cannot connect to backend. Make sure it's running.")
             except Exception as e:
                 st.error(f"Error: {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE 7: ROUTE RISK COMPARISON
+# ══════════════════════════════════════════════════════════════════════════════
+
+elif page == "🧭 Route Risk Comparison":
+    st.title("🧭 Route Risk Comparison")
+    st.caption("AI-driven route safety evaluation comparing historical accident exposure, traffic bottlenecks, and weather risks.")
+
+    st.warning(
+        "⚠️ **Safety Estimation Only**: Risk scores and recommendations are statistical models based on historical accident records and telemetry conditions. "
+        "No route is guaranteed safe. Always follow on-road signage, traffic police directives, and prevailing road conditions."
+    )
+
+    preset_choice = st.selectbox(
+        "Select Corridor Scenario",
+        [
+            "Bangalore Corridor 1: Electronic City ➔ Kempegowda Intl Airport",
+            "Bangalore Corridor 2: Whitefield Tech Hub ➔ Majestic Central Station",
+            "Custom Route Configuration",
+        ],
+    )
+
+    if preset_choice == "Bangalore Corridor 1: Electronic City ➔ Kempegowda Intl Airport":
+        name_a = "Route A: Hosur Rd Elevated + Silk Board + Outer Ring Road"
+        dist_a, time_base_a, delay_a, hs_a, seg_a, high_seg_a = 52.0, 68, 28, 6, 12, 5
+        traffic_a, weather_a = "heavy", "rainy"
+
+        name_b = "Route B: NICE Peripheral Ring Road + Bellary Bypass"
+        dist_b, time_base_b, delay_b, hs_b, seg_b, high_seg_b = 66.0, 74, 8, 2, 14, 1
+        traffic_b, weather_b = "moderate", "rainy"
+
+    elif preset_choice == "Bangalore Corridor 2: Whitefield Tech Hub ➔ Majestic Central Station":
+        name_a = "Route A: Old Airport Road & MG Road Arterial"
+        dist_a, time_base_a, delay_a, hs_a, seg_a, high_seg_a = 21.5, 52, 26, 5, 8, 4
+        traffic_a, weather_a = "heavy", "clear"
+
+        name_b = "Route B: Swami Vivekananda Metro Corridor & Bypass"
+        dist_b, time_base_b, delay_b, hs_b, seg_b, high_seg_b = 24.2, 56, 10, 1, 9, 1
+        traffic_b, weather_b = "moderate", "clear"
+
+    else:
+        st.subheader("Customize Parameters")
+        c_in1, c_in2 = st.columns(2)
+        with c_in1:
+            st.markdown("**Route A Parameters**")
+            name_a = st.text_input("Name", "Route A (Direct / Urban Arterial)")
+            dist_a = st.number_input("Distance (km)", 5.0, 200.0, 30.0, key="dist_a")
+            time_base_a = st.number_input("Base Driving Time (min)", 10, 300, 45, key="time_a")
+            delay_a = st.number_input("Traffic Delay (min)", 0, 120, 20, key="delay_a")
+            hs_a = st.slider("Historical Hotspots Encountered", 0, 15, 5, key="hs_a")
+            seg_a = st.slider("Total Segments", 3, 20, 10, key="seg_a")
+            high_seg_a = st.slider("High-Risk Segments", 0, seg_a, min(3, seg_a), key="hseg_a")
+            traffic_a = st.selectbox("Traffic Condition", ["light", "moderate", "heavy"], index=2, key="traf_a")
+            weather_a = st.selectbox("Weather Condition", ["clear", "rainy", "foggy"], index=0, key="wthr_a")
+
+        with c_in2:
+            st.markdown("**Route B Parameters**")
+            name_b = st.text_input("Name", "Route B (Ring Road / Bypass)")
+            dist_b = st.number_input("Distance (km)", 5.0, 200.0, 38.0, key="dist_b")
+            time_base_b = st.number_input("Base Driving Time (min)", 10, 300, 50, key="time_b")
+            delay_b = st.number_input("Traffic Delay (min)", 0, 120, 6, key="delay_b")
+            hs_b = st.slider("Historical Hotspots Encountered", 0, 15, 1, key="hs_b")
+            seg_b = st.slider("Total Segments", 3, 20, 12, key="seg_b")
+            high_seg_b = st.slider("High-Risk Segments", 0, seg_b, min(1, seg_b), key="hseg_b")
+            traffic_b = st.selectbox("Traffic Condition", ["light", "moderate", "heavy"], index=1, key="traf_b")
+            weather_b = st.selectbox("Weather Condition", ["clear", "rainy", "foggy"], index=0, key="wthr_b")
+
+    # Risk calculation heuristic
+    def calc_route_risk(dist, delay, hs, seg, high_seg, traffic, weather):
+        score = 25.0
+        score += hs * 6.5
+        score += (high_seg / max(1, seg)) * 30.0
+        if traffic == "heavy":
+            score += 15.0
+        elif traffic == "moderate":
+            score += 6.0
+        if weather in ("rainy", "rain"):
+            score += 14.0
+        elif weather in ("foggy", "fog"):
+            score += 18.0
+        if delay > 15:
+            score += min(12.0, (delay - 15) * 0.5)
+        score = min(98.0, max(12.0, score))
+        if score >= 70:
+            lvl = "CRITICAL" if score >= 85 else "HIGH"
+        elif score >= 45:
+            lvl = "MODERATE"
+        else:
+            lvl = "LOW"
+        return round(score, 1), lvl
+
+    score_a, lvl_a = calc_route_risk(dist_a, delay_a, hs_a, seg_a, high_seg_a, traffic_a, weather_a)
+    score_b, lvl_b = calc_route_risk(dist_b, delay_b, hs_b, seg_b, high_seg_b, traffic_b, weather_b)
+    total_time_a = time_base_a + delay_a
+    total_time_b = time_base_b + delay_b
+
+    st.divider()
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        st.markdown(f"### 🔵 Option A: {name_a}")
+        color_a = risk_color(lvl_a)
+        st.markdown(
+            f"<div style='background:{color_a};padding:0.7rem;border-radius:6px;"
+            f"color:white;font-weight:bold;text-align:center;font-size:1.1rem;margin-bottom:0.8rem'>"
+            f"Risk Score: {score_a}/100 ({lvl_a} RISK)</div>",
+            unsafe_allow_html=True,
+        )
+        ca1, ca2 = st.columns(2)
+        ca1.metric("Total Travel Time", f"{total_time_a} min", f"+{delay_a}m delay" if delay_a > 0 else "No delay")
+        ca2.metric("Distance", f"{dist_a:.1f} km")
+        ca3, ca4 = st.columns(2)
+        ca3.metric("Hotspots on Route", f"{hs_a} clusters", delta_color="inverse")
+        ca4.metric("High-Risk Segments", f"{high_seg_a} of {seg_a}")
+        st.caption(f"Conditions: Traffic: **{traffic_a}** | Weather: **{weather_a}**")
+
+    with col_b:
+        st.markdown(f"### 🟢 Option B: {name_b}")
+        color_b = risk_color(lvl_b)
+        st.markdown(
+            f"<div style='background:{color_b};padding:0.7rem;border-radius:6px;"
+            f"color:white;font-weight:bold;text-align:center;font-size:1.1rem;margin-bottom:0.8rem'>"
+            f"Risk Score: {score_b}/100 ({lvl_b} RISK)</div>",
+            unsafe_allow_html=True,
+        )
+        cb1, cb2 = st.columns(2)
+        cb1.metric("Total Travel Time", f"{total_time_b} min", f"+{delay_b}m delay" if delay_b > 0 else "No delay")
+        cb2.metric("Distance", f"{dist_b:.1f} km")
+        cb3, cb4 = st.columns(2)
+        cb3.metric("Hotspots on Route", f"{hs_b} clusters", delta_color="inverse")
+        cb4.metric("High-Risk Segments", f"{high_seg_b} of {seg_b}")
+        st.caption(f"Conditions: Traffic: **{traffic_b}** | Weather: **{weather_b}**")
+
+    st.divider()
+
+    # Recommendation and explainability synthesis
+    st.subheader("💡 SafeGuard Route Intelligence Recommendation")
+    time_diff = abs(total_time_a - total_time_b)
+    risk_diff = abs(score_a - score_b)
+    hs_diff = abs(hs_a - hs_b)
+
+    if score_b < score_a:
+        safer_route = "Option B"
+        time_comment = f"takes {time_diff} minutes longer" if total_time_b > total_time_a else f"is also {time_diff} minutes faster"
+        recommendation_text = (
+            f"**{safer_route} is estimated to be significantly safer** (Risk Score: **{score_b}** vs **{score_a}**). "
+            f"It passes through **{hs_diff} fewer accident hotspots** and encounters **{abs(high_seg_a - high_seg_b)} fewer high-risk road segments**, "
+            f"even though it {time_comment}. "
+            f"For commercial transport, shift vans, and vulnerable drivers, **{safer_route} is the recommended profile**."
+        )
+        st.success(f"👉 **Recommendation**: {recommendation_text}")
+    elif score_a < score_b:
+        safer_route = "Option A"
+        time_comment = f"takes {time_diff} minutes longer" if total_time_a > total_time_b else f"is also {time_diff} minutes faster"
+        recommendation_text = (
+            f"**{safer_route} is estimated to be safer** (Risk Score: **{score_a}** vs **{score_b}**). "
+            f"It avoids major congestion bottlenecks and hotspot concentrations, {time_comment}."
+        )
+        st.success(f"👉 **Recommendation**: {recommendation_text}")
+    else:
+        st.info("Both routes exhibit comparable aggregate risk ratings. Choose based on preferred travel time and road geometry.")
+
+    # Side-by-side Comparative Chart
+    st.subheader("📊 Comparative Risk & Performance Breakdown")
+    fig, ax = plt.subplots(1, 3, figsize=(12, 3.5))
+
+    categories = ["Option A", "Option B"]
+    scores = [score_a, score_b]
+    times = [total_time_a, total_time_b]
+    hs_counts = [hs_a, hs_b]
+
+    bar_colors = [risk_color(lvl_a), risk_color(lvl_b)]
+
+    ax[0].bar(categories, scores, color=bar_colors, alpha=0.85)
+    ax[0].set_ylabel("Risk Score (0–100)")
+    ax[0].set_ylim(0, 100)
+    ax[0].set_title("Aggregated Accident Risk")
+    for i, v in enumerate(scores):
+        ax[0].text(i, v + 2, f"{v}", ha="center", fontweight="bold")
+
+    ax[1].bar(categories, times, color=["#3F51B5", "#009688"], alpha=0.85)
+    ax[1].set_ylabel("Time (minutes)")
+    ax[1].set_title("Total Travel Duration")
+    for i, v in enumerate(times):
+        ax[1].text(i, v + 2, f"{v}m", ha="center", fontweight="bold")
+
+    ax[2].bar(categories, hs_counts, color=["#E91E63", "#FF9800"], alpha=0.85)
+    ax[2].set_ylabel("Cluster Count")
+    ax[2].set_title("Hotspots Intersected")
+    for i, v in enumerate(hs_counts):
+        ax[2].text(i, v + 0.1, f"{v}", ha="center", fontweight="bold")
+
+    plt.tight_layout()
+    st.pyplot(fig)
+    plt.close()
+

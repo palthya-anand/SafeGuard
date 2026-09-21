@@ -81,6 +81,10 @@ class PredictRiskResponse(BaseModel):
     message: str = Field(..., description="Human-readable summary for the driver")
     reasons: List[str] = Field(default_factory=list, description="Contributing risk factors")
     recommended_action: str = Field(..., description="Concise recommended driver action")
+    traffic_source: Optional[str] = Field(None, description="Source of traffic data: mock | tomtom | device")
+    weather_source: Optional[str] = Field(None, description="Source of weather data: mock | openweathermap | device")
+    provider_mode: str = Field("mock", description="Operating mode: mock | live")
+    server_time: Optional[datetime] = Field(None, description="Server timestamp of evaluation")
 
 
 class HotspotResponse(BaseModel):

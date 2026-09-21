@@ -71,14 +71,28 @@ class LocationMonitoringService : Service() {
     private val tag = "LocationMonitoringService"
     private lateinit var fusedClient: FusedLocationProviderClient
     private var lastOverspeedAlertMs = 0L
+    private var smoothedSpeedKmh = 0f
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
             val location = result.lastLocation ?: return
-            val lat      = location.latitude
-            val lon      = location.longitude
-            // Android location speed is in m/s; convert to km/h
-            val speedKmh = (location.speed * 3.6f).coerceAtLeast(0f)
+
+            // 1. Accuracy gate: filter out inaccurate GPS fixes (>35m error)
+            if (location.hasAccuracy() && location.accuracy > 35.0f) {
+                Log.d(tag, "Ignoring inaccurate GPS fix (${location.accuracy}m)")
+                return
+            }
+
+            val lat = location.latitude
+            val lon = location.longitude
+
+            // 2. Stationary detection: suppress GPS noise while stopped (<3 km/h)
+            val rawSpeedKmh = (location.speed * 3.6f).coerceAtLeast(0f)
+            val effectiveSpeed = if (rawSpeedKmh < 3.0f) 0f else rawSpeedKmh
+
+            // 3. Exponential moving average speed smoothing
+            smoothedSpeedKmh = if (smoothedSpeedKmh == 0f || effectiveSpeed == 0f) effectiveSpeed else (0.7f * effectiveSpeed + 0.3f * smoothedSpeedKmh)
+            val speedKmh = smoothedSpeedKmh
 
             // Publish to SharedFlow (non-blocking; extra capacity absorbs bursts)
             _locationFlow.tryEmit(Triple(lat, lon, speedKmh))

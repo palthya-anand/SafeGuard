@@ -1,0 +1,17 @@
+{
+  "application_version": "1.0.0-rc.1",
+  "release_stage": "release-candidate",
+  "model_version": "0.4.0",
+  "python": "3.13.15",
+  "kotlin": "2.4.20",
+  "android_compile_sdk": 36,
+  "android_target_sdk": 36,
+  "android_min_sdk": 26,
+  "agp": "9.4.0",
+  "gradle": "9.6.0",
+  "jdk": "17",
+  "build_date": "2026-09-22",
+  "android_lint_errors": 0,
+  "tests_passing": 18
+}
+
