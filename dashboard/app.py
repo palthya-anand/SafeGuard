@@ -32,6 +32,11 @@ import requests
 import streamlit as st
 from streamlit.components.v1 import html as st_html
 
+
+def folium_static(fig, width: int | None = None, height: int = 500):
+    """Render a Folium map inside Streamlit using html component."""
+    return st_html(fig._repr_html_(), height=height)
+
 # ── Configuration & Paths ──────────────────────────────────────────────────────
 
 ROOT = Path(__file__).parent.parent
