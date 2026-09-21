@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: safeguard-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=development
+      - DATABASE_URL=sqlite:///./data/app.db
+      - TRAFFIC_PROVIDER=${TRAFFIC_PROVIDER:-mock}
+      - TRAFFIC_API_KEY=${TRAFFIC_API_KEY:-}
+      - WEATHER_PROVIDER=${WEATHER_PROVIDER:-mock}
+      - WEATHER_API_KEY=${WEATHER_API_KEY:-}
+      - MODEL_PATH=/app/data-science/models/accident_risk_model.joblib
+      - PREPROCESSOR_PATH=/app/data-science/models/preprocessor.joblib
+      - HOTSPOT_PATH=/app/data-science/data/processed/hotspots.csv
+    volumes:
+      - ./data-science/models:/app/data-science/models:ro
+      - ./data-science/data:/app/data-science/data:ro
+      - backend_db:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    container_name: safeguard-dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://backend:8000/api/v1
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./data-science/data:/app/data-science/data:ro
+      - ./data-science/models:/app/data-science/models:ro
+    restart: unless-stopped
+
+volumes:
+  backend_db:
