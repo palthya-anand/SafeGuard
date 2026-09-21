@@ -35,17 +35,36 @@ Accident Traffic       Weather
  Phone Warning + Dashboard
 ```
 
+## Quick Start
+
+Run both the FastAPI backend and Streamlit dashboard with a single command:
+
+```powershell
+python run_project.py
+```
+
+- **Dashboard**: [http://localhost:8501](http://localhost:8501)
+- **FastAPI Core**: [http://127.0.0.1:8000](http://127.0.0.1:8000)
+- **Interactive Swagger Docs**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+## Connected Live APIs & Providers
+
+SafeGuard integrates live external intelligence feeds:
+- **Mapbox Cartography Engine (Primary)**: High-resolution dark-mode (`dark-v11`), navigation-night, streets, and satellite raster `@2x` tiles with dual-layer OpenStreetMap (OSM) fallback switching.
+- **TomTom Traffic Flow API**: Real-time traffic delay, congestion levels, and flow speed ratios.
+- **OpenWeatherMap API**: Live ambient temperature, rainfall precipitation rates, and atmospheric visibility with caching.
+
 ## Main modules
 1. Accident data analytics and EDA
-2. Accident hotspot detection using GPS coordinates
-3. ML-based road-risk classification
-4. Android live speed/location monitoring
-5. Traffic-awareness integration
-6. Weather-awareness integration
-7. Real-time phone notifications and voice alerts
-8. Optional crash-detection prototype
-9. Optional emergency-contact alert
-10. Analytics dashboard
+2. Accident hotspot detection using GPS coordinates (DBSCAN)
+3. ML-based road-risk classification (RandomForestClassifier v0.4.0)
+4. Android live speed/location monitoring (Kotlin, Coroutines, Foreground Service)
+5. Traffic-awareness integration (TomTom Live Flow API)
+6. Weather-awareness integration (OpenWeatherMap Live API)
+7. Map & GIS visualization (Mapbox Primary with OpenStreetMap fallback)
+8. Real-time phone notifications and voice alerts
+9. Emergency crash-detection workflow (15s confirmation dialog with `[I AM OK]`)
+10. Analytics command center dashboard (Streamlit)
 
 ## Repository structure
 

@@ -14,6 +14,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import Alert, Hotspot, Telemetry, get_db
 from app.schemas.predict import (
     CrashEventRequest,
@@ -212,6 +213,12 @@ async def road_context(
         "lighting": "daylight",
         "traffic": traffic.model_dump(),
         "weather": weather.model_dump(),
+        "map_engine": {
+            "primary": "mapbox",
+            "provider": settings.MAP_PROVIDER,
+            "style_id": settings.MAPBOX_STYLE_ID,
+            "token_configured": bool(settings.MAPBOX_ACCESS_TOKEN or settings.MAPBOX_API_KEY),
+        },
     }
 
 

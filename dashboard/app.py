@@ -47,10 +47,21 @@ def _find_dir(*candidates: Path) -> Path:
 DATA_DIR = _find_dir(ROOT / "data" / "processed", ROOT / "data-science" / "data" / "processed")
 MODEL_DIR = _find_dir(ROOT / "models", ROOT / "data-science" / "models")
 API_BASE = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api/v1")
-MAPBOX_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN") or os.getenv("MAPBOX_API_KEY") or os.getenv("MAPBOX_TOKEN") or ""
+MAPBOX_TOKEN = (
+    os.getenv("MAPBOX_ACCESS_TOKEN")
+    or os.getenv("MAPBOX_API_KEY")
+    or os.getenv("MAPBOX_TOKEN")
+    or ""
+).strip()
 MAPBOX_DEFAULT_STYLE = os.getenv("MAPBOX_STYLE_ID", "mapbox/dark-v11")
-TRAFFIC_KEY = os.getenv("TRAFFIC_API_KEY", "")
-WEATHER_KEY = os.getenv("WEATHER_API_KEY", "")
+TRAFFIC_KEY = os.getenv("TRAFFIC_API_KEY", "").strip()
+WEATHER_KEY = os.getenv("WEATHER_API_KEY", "").strip()
+
+# Global Mapbox state (Primary Map Engine across all pages)
+if "mapbox_token" not in st.session_state:
+    st.session_state["mapbox_token"] = MAPBOX_TOKEN
+
+active_token = st.session_state.get("mapbox_token", MAPBOX_TOKEN).strip()
 
 st.set_page_config(
     page_title="SafeGuard — Road Safety Command Center",
@@ -615,20 +626,22 @@ elif page == "🗺️ Accident Heatmap":
     # Detect Mapbox token from environment or session
     env_mapbox_token = os.getenv("MAPBOX_API_KEY") or os.getenv("MAPBOX_TOKEN") or ""
 
-    with st.expander("🔑 Mapbox Provider & Access Token Settings", expanded=False):
+    with st.expander("🔑 Mapbox Provider & Access Token Settings (Primary Engine)", expanded=False):
         st.markdown(
-            "Configure Mapbox to unlock premium high-resolution navigation and dark-mode cartography tiles."
+            "Mapbox is configured as the **Primary Map Engine** for high-definition cartography, Retina @2x tiles, and dark-mode route navigation."
         )
         user_mapbox_token = st.text_input(
             "Mapbox Public Access Token (`pk.eyJ1...`)",
-            value=env_mapbox_token,
+            value=st.session_state.get("mapbox_token", MAPBOX_TOKEN),
             type="password",
             help="Paste your Mapbox access token here or define MAPBOX_API_KEY in your .env file.",
         )
-        if user_mapbox_token:
-            st.success("✓ Mapbox Access Token detected and active.")
+        if user_mapbox_token and user_mapbox_token.strip() != st.session_state.get("mapbox_token"):
+            st.session_state["mapbox_token"] = user_mapbox_token.strip()
+            active_token = user_mapbox_token.strip()
+            st.success("✓ Mapbox Access Token updated and active as Primary Map Provider.")
 
-    active_token = user_mapbox_token.strip() if user_mapbox_token else env_mapbox_token.strip()
+    active_token = st.session_state.get("mapbox_token", MAPBOX_TOKEN).strip()
 
     # Provider Status Banner
     if active_token:
@@ -637,14 +650,14 @@ elif page == "🗺️ Accident Heatmap":
             <div style="background:linear-gradient(135deg, rgba(16, 34, 56, 0.95), rgba(8, 20, 38, 0.95));border:1px solid rgba(0, 229, 255, 0.4);border-radius:10px;padding:14px 18px;margin-bottom:16px;box-shadow:0 4px 16px rgba(0,0,0,0.35);">
                 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
                     <div style="font-weight:700;color:#00E5FF;font-size:0.95rem;display:flex;align-items:center;gap:8px;">
-                        <span>🗺️</span> <span>Active Map Provider: <b>Mapbox Navigation Engine</b> (Licensed API Key Connected)</span>
+                        <span>🗺️</span> <span>Primary Map Provider: <b>Mapbox Navigation Engine</b> (Licensed API Active)</span>
                     </div>
                     <span class="sg-status-chip sg-chip-online">
-                        ● Mapbox API Active
+                        ● Mapbox Active (Primary)
                     </span>
                 </div>
                 <div style="font-size:0.83rem;color:#94A3B8;margin-top:6px;line-height:1.45;">
-                    ℹ️ <i>For production route intelligence, evaluate Mapbox, Google Maps, or another licensed provider with API-key management.</i>
+                    ℹ️ <i>High-resolution retina @2x tiles active. OpenStreetMap (OSM) available as layer fallback.</i>
                 </div>
             </div>
             """,
@@ -656,14 +669,14 @@ elif page == "🗺️ Accident Heatmap":
             <div style="background:linear-gradient(135deg, rgba(16, 34, 56, 0.95), rgba(8, 20, 38, 0.95));border:1px solid rgba(0, 229, 255, 0.3);border-radius:10px;padding:14px 18px;margin-bottom:16px;box-shadow:0 4px 16px rgba(0,0,0,0.35);">
                 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
                     <div style="font-weight:700;color:#00E5FF;font-size:0.95rem;display:flex;align-items:center;gap:8px;">
-                        <span>🗺️</span> <span>Active Map Provider: <b>OpenStreetMap (OSM)</b> — Hackathon Edition</span>
+                        <span>🗺️</span> <span>Active Map Provider: <b>OpenStreetMap (OSM)</b> — Fallback Edition</span>
                     </div>
                     <span class="sg-status-chip sg-chip-online">
                         ● OSM Attribution Active
                     </span>
                 </div>
                 <div style="font-size:0.83rem;color:#94A3B8;margin-top:6px;line-height:1.45;">
-                    ℹ️ <i>For production route intelligence, evaluate Mapbox, Google Maps, or another licensed provider with API-key management. (Mapbox token can be added in the drawer above).</i>
+                    ℹ️ <i>To activate Mapbox as primary engine, provide your Mapbox Access Token in the drawer above or in `.env`.</i>
                 </div>
             </div>
             """,
@@ -690,19 +703,19 @@ elif page == "🗺️ Accident Heatmap":
         with f2:
             if active_token:
                 style_choice = st.selectbox(
-                    "Map Tile Theme",
+                    "Primary Map Tile Theme",
                     [
+                        "🌃 Mapbox Dark v11 (Primary)",
                         "🚗 Mapbox Navigation Night",
-                        "🌃 Mapbox Dark v11",
                         "🏙️ Mapbox Streets v12",
                         "🛰️ Mapbox Satellite Streets",
-                        "🌐 OpenStreetMap (OSM)",
+                        "🌐 OpenStreetMap (OSM Fallback)",
                     ],
                     index=0,
                 )
             else:
                 style_choice = "🌐 OpenStreetMap (OSM)"
-                st.selectbox("Map Tile Theme", ["🌐 OpenStreetMap (OSM — Free Default)"], disabled=True)
+                st.selectbox("Primary Map Tile Theme", ["🌐 OpenStreetMap (OSM — Fallback)"], disabled=True)
         with f3:
             severity_filter = st.multiselect(
                 "Filter Incident Severity Layers",
@@ -713,28 +726,37 @@ elif page == "🗺️ Accident Heatmap":
         filtered = df[df["severity"].isin(severity_filter)]
         city_lat, city_lon, zoom = city_coords[selected_city]
 
-        # Configure Map tiles dynamically (Mapbox vs OpenStreetMap)
+        # Configure Map tiles dynamically (Mapbox Primary with OpenStreetMap fallback)
         if active_token and "Mapbox" in style_choice:
             style_slug_map = {
+                "🌃 Mapbox Dark v11 (Primary)": "dark-v11",
                 "🚗 Mapbox Navigation Night": "navigation-night-v1",
-                "🌃 Mapbox Dark v11": "dark-v11",
                 "🏙️ Mapbox Streets v12": "streets-v12",
                 "🛰️ Mapbox Satellite Streets": "satellite-streets-v12",
             }
-            slug = style_slug_map.get(style_choice, "navigation-night-v1")
+            slug = style_slug_map.get(style_choice, "dark-v11")
             mapbox_tile_url = f"https://api.mapbox.com/styles/v1/mapbox/{slug}/tiles/256/{{z}}/{{x}}/{{y}}@2x?access_token={active_token}"
             m = folium.Map(
                 location=[city_lat, city_lon],
                 zoom_start=zoom,
                 tiles=mapbox_tile_url,
+                name=f"Mapbox ({slug})",
                 attr='&copy; <a href="https://www.mapbox.com/about/maps/" target="_blank">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
             )
+            # Add OpenStreetMap as an accessible alternate layer
+            folium.TileLayer(
+                "OpenStreetMap",
+                name="OpenStreetMap (OSM Fallback)",
+                attr='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
+            ).add_to(m)
+            folium.LayerControl(position="topright").add_to(m)
         else:
             # Direct OpenStreetMap with visible attribution
             m = folium.Map(
                 location=[city_lat, city_lon],
                 zoom_start=zoom,
                 tiles="OpenStreetMap",
+                name="OpenStreetMap",
                 attr='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
             )
 
@@ -971,6 +993,63 @@ elif page == "⚠️ Hotspot Intelligence":
             hotspots.sort_values("accident_count", ascending=False),
             use_container_width=True,
         )
+
+        st.divider()
+
+        st.subheader("🗺️ Hotspot Spatial Distribution (Mapbox Primary Cartography)")
+        st.caption("Active geospatial cluster zones showing DBSCAN hazard radii and critical blackspots.")
+        hs_center_lat = hotspots["latitude"].mean() if not hotspots.empty else 12.9716
+        hs_center_lon = hotspots["longitude"].mean() if not hotspots.empty else 77.5946
+
+        if active_token:
+            hs_tile_url = f"https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{{z}}/{{x}}/{{y}}@2x?access_token={active_token}"
+            hs_map = folium.Map(
+                location=[hs_center_lat, hs_center_lon],
+                zoom_start=11,
+                tiles=hs_tile_url,
+                name="Mapbox Dark v11 (Primary)",
+                attr='&copy; <a href="https://www.mapbox.com/about/maps/" target="_blank">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
+            )
+            folium.TileLayer(
+                "OpenStreetMap",
+                name="OpenStreetMap (OSM Fallback)",
+                attr='&copy; OpenStreetMap contributors',
+            ).add_to(hs_map)
+            folium.LayerControl(position="topright").add_to(hs_map)
+        else:
+            hs_map = folium.Map(
+                location=[hs_center_lat, hs_center_lon],
+                zoom_start=11,
+                tiles="OpenStreetMap",
+                name="OpenStreetMap",
+                attr='&copy; OpenStreetMap contributors',
+            )
+
+        for _, hs_row in hotspots.iterrows():
+            hs_lvl = hs_row.get("risk_level", "HIGH")
+            hs_color = "#B42318" if hs_lvl == "CRITICAL" else ("#F05D5E" if hs_lvl == "HIGH" else "#F4B942")
+            rad = float(hs_row.get("radius_m", 1500))
+            folium.Circle(
+                location=[hs_row["latitude"], hs_row["longitude"]],
+                radius=rad,
+                color=hs_color,
+                fill=True,
+                fill_color=hs_color,
+                fill_opacity=0.22,
+                weight=2,
+                popup=f"<b>Hotspot:</b> {hs_row.get('hotspot_id', 'Cluster')}<br><b>Accidents:</b> {hs_row['accident_count']}<br><b>Risk:</b> {hs_lvl}<br><b>Radius:</b> {rad:.0f}m",
+            ).add_to(hs_map)
+            folium.CircleMarker(
+                location=[hs_row["latitude"], hs_row["longitude"]],
+                radius=6,
+                color="#FFFFFF",
+                fill=True,
+                fill_color=hs_color,
+                fill_opacity=1.0,
+                weight=1.8,
+            ).add_to(hs_map)
+
+        folium_static(hs_map, width=1050, height=440)
 
         st.divider()
         hcol1, hcol2 = st.columns(2)
@@ -1415,7 +1494,7 @@ elif page == "⚙️ System Diagnostics":
 
     st.subheader("API Endpoints & Operational Status")
     endpoint_data = [
-        {"Component": "Map Engine", "Active Provider": "Mapbox Navigation Engine" if active_token else "OpenStreetMap (OSM)", "Status": "200 OK (Licensed)" if active_token else "200 OK (Free Default)"},
+        {"Component": "Map Engine (GIS)", "Active Provider": "Mapbox Navigation Engine (Primary)" if active_token else "OpenStreetMap (OSM Fallback)", "Status": "200 OK (Licensed Key Active)" if active_token else "200 OK (Free Default)"},
         {"Component": "GET /api/v1/health", "Active Provider": "FastAPI Core", "Status": "200 OK" if api_online else "Offline"},
         {"Component": "POST /api/v1/predict-risk", "Active Provider": "ML Risk Inference Engine", "Status": "200 OK" if api_online else "Offline"},
         {"Component": "GET /api/v1/hotspots/nearby", "Active Provider": "Spatial Hotspot Radius Query", "Status": "200 OK" if api_online else "Offline"},
