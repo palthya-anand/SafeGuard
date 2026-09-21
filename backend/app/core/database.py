@@ -157,7 +157,39 @@ def get_db() -> Generator[Session, None, None]:
 # --------------------------------------------------------------------------- #
 
 def init_db() -> None:
-    """Create all tables if they do not already exist."""
+    """Create all tables if they do not already exist and seed hotspots."""
+    import csv
+    from pathlib import Path
+
     logger.info("Initialising database at %s", settings.DATABASE_URL)
     Base.metadata.create_all(bind=engine)
+
+    # Auto-seed hotspots from CSV if table is empty
+    with SessionLocal() as db:
+        existing_count = db.query(Hotspot).count()
+        if existing_count == 0:
+            for p in [Path(settings.HOTSPOT_PATH), Path("data/processed/hotspots.csv"), Path("../data/processed/hotspots.csv")]:
+                if p.exists():
+                    try:
+                        with open(p, mode="r", encoding="utf-8") as f:
+                            reader = csv.DictReader(f)
+                            hs_records = [
+                                Hotspot(
+                                    latitude=float(row["latitude"]),
+                                    longitude=float(row["longitude"]),
+                                    accident_count=int(row["accident_count"]),
+                                    severity_index=float(row["severity_index"]),
+                                    radius_m=float(row.get("radius_m", 500.0)),
+                                    risk_level=row.get("risk_level", "MODERATE"),
+                                )
+                                for row in reader
+                            ]
+                        db.add_all(hs_records)
+                        db.commit()
+                        logger.info("Auto-seeded %d hotspots from %s", len(hs_records), p)
+                        break
+                    except Exception as e:
+                        logger.warning("Could not auto-seed hotspots: %s", e)
+                        db.rollback()
+
     logger.info("Database ready.")
